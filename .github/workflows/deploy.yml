@@ -1,0 +1,65 @@
+name: Deploy Trade Avata Full Native
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Run Trade Avata tests
+        run: npm test
+
+      - name: Verify full native package
+        run: npm run verify
+
+      - name: Run transition and Renko stress tests
+        run: npm run stress
+
+      - name: Run Native V3 stress tests
+        run: npm run stress:native-v3
+
+      - name: Run full native stress tests
+        run: npm run stress:full-native
+
+      - name: Run final parity stress tests
+        run: npm run stress:parity
+
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload website
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
