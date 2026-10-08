@@ -1,0 +1,61 @@
+Trade Avata Master Recovery v9.1.0 — Verification Report
+=========================================================
+
+Build basis
+-----------
+- Based on the latest successful AVATA-CHART-SUPREME GitHub Pages deployment artifact.
+- Approved front-facing Supreme shell preserved.
+- Trade Avata Native Chart v2.7 integrated as the default visible candle renderer.
+- TradingView Lightweight Charts renderer retained as switchable fallback/scaffolding.
+- Owner-only Chart Quality AI integrated as the third AI surface.
+
+Automated verification
+----------------------
+- Node test suite: 39/39 passing.
+- Package integrity verifier: PASS.
+- JavaScript syntax checks: PASS for native-v27-renderer.js, chart-quality-ai.js and master-recovery.js.
+- Python gateway syntax compile: PASS.
+
+Native v2.7 integration checks
+------------------------------
+- Native v2.7 canvas is attached to every chart pane.
+- Clean/default state selects Native v2.7.
+- Underlying Supreme candle series is made transparent while Native v2.7 is active.
+- Existing axes/crosshair/indicator/oscillator scaffolding is preserved for compatibility.
+- Native candle renderer uses HiDPI crisp body/wick/border rendering.
+- v2.7 maximum zoom-out rule is applied through dynamic minimum bar spacing.
+- Native timeframe switching preserves visual candle spacing and future-space positioning.
+- Engine can switch back to TradingView fallback.
+- TradingView fallback attribution logo is enabled only when fallback is visible.
+- Owner can disable TradingView fallback; active fallback returns to Native when disabled.
+
+Chart Quality AI checks
+-----------------------
+- Monitoring enabled by default.
+- Quality AI UI restricted to Owner / local Owner preview.
+- Admin role alone does not grant Quality AI access.
+- Periodic FPS sampler is burst-based, not a continuous heavy model loop.
+- Native paint duration, series rebuild, timeframe switch, overlay redraw, long tasks, runtime errors and oscillator layout drift are monitored.
+- Automatic recommendations are generated locally.
+- Suggested diagnostic questions are present by default.
+- Secure /api/ai/quality channel is supported by the gateway contract when a provider is later configured.
+- If the remote AI provider is unavailable, Quality AI still returns local diagnostic analysis.
+- No broker password, access token or private indicator source is included in the quality telemetry context.
+
+Existing recovery checks retained
+---------------------------------
+- Mouse / Pointer recovery and Escape behavior.
+- Mobile drawing gesture ownership.
+- Indicator Eye + Edit + Remove controls and attached-indicator list.
+- Oscillator guide levels and pane-height persistence.
+- One-click 1:1 Risk/Reward placement and six-handle editing.
+- Lower navigation and Return-to-Live.
+- Draggable Replay toolbar with BUY/SELL simulation.
+- Six platform themes.
+- Private Indicator Vault Build & Validate workflow.
+- Owner/explicit-permission AI chat gate.
+- Hardcoded Buy/Sell chart badges removed.
+
+Browser-runtime limitation of this verification environment
+-----------------------------------------------------------
+The container's Chromium network service could not reliably load the external unpkg Lightweight Charts script, so the final browser-level visual test could not be completed in this isolated environment. Static integration, syntax, unit tests and package verification all pass. On GitHub Pages, the same external renderer dependency used by the currently successful Supreme deployment remains unchanged.

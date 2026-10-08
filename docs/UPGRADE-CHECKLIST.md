@@ -1,0 +1,43 @@
+# Trade Avata Chart v8 — Release Checklist
+
+- [x] Preserve approved interface shell
+- [x] Mount chart before renderer initialization
+- [x] Home View RESET separated from View All Data
+- [x] AUTO / FREE / LIVE navigation
+- [x] Future chart whitespace and future drawing coordinates
+- [x] Three-layer candle Body / Border / Wick settings
+- [x] Twenty candle palette presets
+- [x] Platform Theme separated from Chart Appearance
+- [x] Time / Ticks / Renko Pips / Renko Time / Range Pips
+- [x] Searchable built-in indicator library
+- [x] Replay truncates future indicators
+- [x] On-chart replay selector and playback controls
+- [x] cTrader-inspired analytics expansion
+- [x] No click-to-delete drawing mode
+- [x] Drawing-only Undo / Redo
+- [x] Floating selected-object toolbar
+- [x] Style / Coordinates / Visibility drawing settings
+- [x] Future-space Long/Short Position placement
+- [x] Right-click chart context menu
+- [x] Snapshot menu and metadata screenshot composition
+- [x] Named Chart Templates
+- [x] Named Workspaces
+- [x] Detached synchronized browser-window chart foundation
+- [x] Full-width single-content modal fix
+- [x] Broker connected-account label behaviour
+- [x] Bid/Ask/last-price/countdown foundations
+- [x] Node tests
+- [x] JS syntax checks
+- [x] Backend Python syntax validation
+- [x] Package integrity verifier
+- [x] Node-24-compatible GitHub Pages workflow
+
+Production-only dependencies that still require external infrastructure rather than static GitHub Pages:
+- licensed live/historical market data;
+- exact tick-history Renko reconstruction;
+- real cTrader OAuth token exchange/order routing;
+- server-side always-on alert evaluation;
+- Firebase/cloud workspace synchronization;
+- permanent shareable snapshot-image URLs;
+- private indicator compute services;
+- production AI services.

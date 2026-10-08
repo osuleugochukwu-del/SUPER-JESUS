@@ -1,0 +1,11 @@
+{
+  "name":"Trade Avata Chart",
+  "short_name":"Avata Chart",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#07111c",
+  "theme_color":"#07111c",
+  "icons":[
+    {"src":"./public/brand/trade-avata-logo.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+  ]
+}

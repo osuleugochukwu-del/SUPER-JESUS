@@ -1,0 +1,71 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 168 168"
+  width="168"
+  height="168"
+>
+  <!-- Trade Avata blue rounded-square mark -->
+  <rect
+    x="9"
+    y="9"
+    width="150"
+    height="150"
+    rx="31"
+    ry="31"
+    fill="#2C6CFB"
+  />
+
+  <!-- T top -->
+  <path
+    d="
+      M36 58
+      L55 59
+      L58 61
+      L62 59
+      L87 59
+      L92 50
+      L38 49
+      L36 51
+      Z
+    "
+    fill="#FFFFFF"
+  />
+
+  <!-- T stem -->
+  <path
+    d="
+      M60 63
+      L58 64
+      L58 108
+      L62 105
+      L68 93
+      L68 68
+      L65 64
+      Z
+    "
+    fill="#FFFFFF"
+  />
+
+  <!-- Stylized A / arrow -->
+  <path
+    d="
+      M102 52
+      L66 113
+      L65 118
+      L75 118
+      L78 115
+      L101 74
+      L104 74
+      L108 78
+      L118 94
+      L118 99
+      L104 115
+      L104 118
+      L115 118
+      L130 100
+      L131 94
+      Z
+    "
+    fill="#FFFFFF"
+  />
+</svg>

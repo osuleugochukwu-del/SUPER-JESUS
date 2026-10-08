@@ -1,0 +1,76 @@
+TRADE AVATA v10.2.0 — FULL NATIVE FINAL PARITY
+Baseline: SUPER-CHART-AVATA main 7c7a7cdffa01e2ec953972a91d8a4afd4a0cfb16
+Renderer: Trade Avata Native v3.2 Full Native (no external chart renderer)
+Validation: 75/75 tests + 100,000 transition/Renko + 100,000 full-native + 100,000 native-core + 1,000 final parity stress
+
+Files excluding this manifest: 69
+SHA-256:
+28f0a7c4976786313c18b5fe3bc6ab34864088b444125b1acf9f6da85faeacbc  ./.github/workflows/deploy.yml
+6fa5ce89b33ffe6d166d9bd61f9d95b0ab0ec555c46385c3a06af3cb857df725  ./CHANGELOG-v8.md
+184f4b08afca9c240e89998ecdbcb9a88d74dba2b54a15f17a6a017e6a942d0f  ./FINAL-NATIVE-PARITY-AUDIT.md
+d4e48def93accba165d34d8d7f07cee73d065ef1597a92732fda1d035d6e2606  ./FULL-NATIVE-PRESERVATION-AUDIT.md
+8eb464685b2e67a56c2d267b987838d9e64faab08eae55a9767ed8db20d926a4  ./FULL-NATIVE-TEST-REPORT.md
+5c45235b8db5d761d9e4d540e49472a4249287379799d609283398ff7d1213be  ./FULL-NATIVE-V10-RELEASE.md
+02954fa4250c81772e567cd317e8b767daf89cf9b3950dec98a39b626e5029cf  ./MASTER-RECOVERY-TEST-REPORT.txt
+05e681e0c3e8357568821bfa94cce95a0da69cea77c81e087207c3c4c64defdc  ./NEW-REPOSITORY-UPLOAD.md
+285d139a9205725b34c07a8b7a187160f557167e59f91c241c435acf572bbea8  ./README.md
+af7bd14fe757fa81da09db7df644b84701380e7eda71b48f03cf7a692ce572c3  ./assets/master-recovery.css
+1f9a7f2a94b56e15648815fdeaca90656813eff0826a95955cf6b10f684f8c61  ./assets/styles.css
+4eb1f1268f69cc1e901d8697f1bef1e725d29f04bbb4f7ce28fe52afd1965abb  ./docs/ADS-AI-ALERTS.md
+655f85fe93237fd4621226aeb14b1e029292321e17fc44f34405e6e112f4ae7d  ./docs/MASTER-RECOVERY-CHANGELOG.md
+ae47f76717ad7d5e20131413fe2a6b53ba023d9598c981db3ba975ccf68f7446  ./docs/MASTER-UPGRADE-SPEC.md
+81a9e0391f63a71bfdfc787ea36c8f2dec29d56a26e1aedd2cd945aa81b3e5a8  ./docs/PLATFORM-INFRASTRUCTURE.md
+b3b674787dfdc09d100351dc3f96c4987371a11c85199fccd164a183b213eb97  ./docs/RENKO-NOTES.md
+91eaa2bbf9b51b3fb2fcd120826113ac34bb7216071deb755ade25cc65048be2  ./docs/SECURITY-INDICATORS.md
+0afaef26298e1948c4e839b1cf9e2e06a69f686ca3ce53d256d7b78fa7f13a27  ./docs/SHARING.md
+8cedb610aef585383884a870548cdc2a7d2a4b0fa6988c1bce0247e94ce8f7a6  ./docs/UPGRADE-CHECKLIST.md
+be34b93028163ffdd72c66a34e6e029038b66aa29e5b15c2c7621efafc4aa4bc  ./engines/trade-avata-native-chart-v2.7.html
+52ff857490ce541615939ac306412ccabac6a6c1e7b9eeec990ae2d22f644a6e  ./engines/trade-avata-native-chart-v3.0.html
+e4c2a4d399ea5335b1225a6e0e96517ce43bae7688350bf27b3683a5e1f2c3dc  ./index.html
+c6df6dad543408da95dca0b90140606bd50e5f72a3a968a5a6b49df30b9f55f4  ./manifest.webmanifest
+1c404273656d9edf3aeb1a2d70622100d5869d514bccdb73eea282ef8c2d29d0  ./package.json
+45ae7847927226b992cd379d2fb5fce7f72b8aed670acc7ed5d6e41477201c7a  ./public/brand/trade-avata-logo.svg
+81d528cff84340406e89ec75cd3edcb43ccc2e257fde6dd224054bdc8404ec23  ./scripts/final-parity-stress.mjs
+c0c604e32965c05c7a3acb1b608b2038f132ac713be6a7ca0268be0174dbb4b0  ./scripts/full-native-stress.mjs
+a9a1f1f9a0eae55bd9742806b7059c9a3ad22da8717c5c7223d5b1d91a319e38  ./scripts/native-v3-stress.mjs
+39781265927ef4883decdeb3e8d3ddc756509e0a06ff27de2d4dadb9ffb127ae  ./scripts/stress.mjs
+4a21e826aae43a9d8ffdb796e698c0833e127eba2083d5dd261e5f2111fba61f  ./scripts/verify.mjs
+1f273a05171ace2fcd16ba2260d4e04621b223d662c45bdbf47f9b5a81740913  ./server/app.py
+736b97118e6c6ad051bf46876d285f147aec1eb322cec5f455a0096cf1ecb6d5  ./server/requirements.txt
+2bfed8301d90c8c7796cdf5df6dc1238b3f81f2267c945c7dbf6bb6b752c3906  ./src/ai-client.js
+c2e66d8f05bdb0d9b65dcb820f866b1a6dcb6a263f75e9336a03765d95b1009c  ./src/alert-client.js
+071470c1c641bc8f359d8cad0d4d5abb85daebeec27d15b95283a0dd005ba053  ./src/analytics.js
+ef5c2eedb68cf7809a08ed7a5f0fb0b735a3340998aa927bd18739d4d819cc60  ./src/app.js
+8836635f0db27808d43a55ffb797e64f9f3589f27fe23135b85d5574b8bba51b  ./src/chart-pane.js
+6231ee70794f57959c35322a7d497ed71430bb25245f290f9b5e8800a69e4ce7  ./src/chart-quality-ai.js
+79d5a6b9a48e224b34ddd4a33622799b4f3f3f43b0fe4e7b74a53d495c3245e5  ./src/chart-transition.js
+928fc5fc24de5d3727de714170414335e7ac8ed5e003013032ecf247ef3a54bd  ./src/data.js
+16e99452ae168f2e88e5d3952ebaf4aa40086ed3abdfc085856194d622e4bf6d  ./src/drawings.js
+ab68f822bec4524f7401c9d1e5869b252d2d09a6f828b15b5e713f1e413729b6  ./src/indicator-security.js
+e2fafdfcfb30ec40c594d377630600ccac82f6bd373581cd6d373ea732f15955  ./src/indicators.js
+30da019f61e1338cc9875834b7de59ae6a647e32fdcc4e4441bef8ec0c7cc504  ./src/market-intelligence.js
+2c0cda0a7770dd8b277abdb599d157804b1ddfb5e1aaeffdb149338ea8374a4d  ./src/master-recovery.js
+230fb472a8623c540fe12cf950a72f470a8aa41568576905579256132378bcbb  ./src/native-chart.js
+18e3c64df1bdbfeb6a296ce01b9c90c40d733aaae0ad406c94e0d0aaadb7560f  ./src/native-v27-renderer.js
+7a525a9e365485eeb16ae6da8eae544a1aa32168ffe89bd7a4edc65ab745ada4  ./src/native-v3-core.js
+a24c3726601871f64d4c7a703cd4e5b2eedfdbdc2ca420acd33041b1fcd4985b  ./src/replay-client.js
+23decac564c0d00cf0af42da53352dae4d4f0ed6a27ef94129ac0237525dd6c8  ./src/share.js
+b8e544b872a8895e8c48fd674964cbb833315e9c1d7b4c76dd225f857a61a695  ./src/state.js
+efe113516772964d70ae677a298e2948eb121e602fe721083e1b6c7a31d278fa  ./src/utils.js
+3202d1324c7efdd2f9ae22287523cedfb1dbf9c568e7fd7d4bf695dacbc11743  ./src/workspace-sync.js
+6274997bc3dff4be921845fe18d6516f5706cb3c032babdcffc48289f6eb5b63  ./sw.js
+4f90ee9e342abc4f62f454e8d52cfba9dc8755c1b8749ef1157b9eeb7b7e05dd  ./tests/data.test.js
+ee102640630e1ff6e1ce61df3fd741aa608934fd859054e415c80d03a81c9b70  ./tests/full-native-runtime.test.js
+19640a84cb7d01eee16a65fbdc190ddce28ba876680acf7c8304514586eaa5fd  ./tests/indicators.test.js
+a8a95fe734baf83cb443f6515d01747297f13d398f70d2bd427a903b7456f9f0  ./tests/market-intelligence.test.js
+7ed16ed85474cfdb5eaa01f749aa45d9efda5a71c0f9cee2a500207a1b0df8ed  ./tests/master-recovery.test.js
+f83ac1e0ceb68c082a9dc9780d48e187c8a88cfe2e8e0e98ecef9c248ad52078  ./tests/native-parity.test.js
+af46d8e971241a1ce6e2f2a8a86e9ff4ba7341bd816bb6f99efb0b6faf239795  ./tests/native-quality-ai.test.js
+33b2e3a082a449d00fe32837aa327663bb6d8c2a41bd1624e74735d79420dcbe  ./tests/native-v3.test.js
+f55c442264214d61a4ecfeac83e85a7d9a503f688537753630a1067a7dd50b2c  ./tests/periods.test.js
+8b354c47087f21f5bc2a415c6738acd9d08ae9e68d804bb83a9c024c21756297  ./tests/renko.test.js
+a93433dc5b10c34d15940b6a46a1f991822b7ce209c0ee7dd8873eba8d93ba97  ./tests/security.test.js
+680f8b6bb43bf648aa3e523da315d83e81c59dc55fe520c7f4812cc0fa81d60a  ./tests/share.test.js
+06a1546d3011e23f49787300c8ab83478c0e1ba08160fe3375f5d591cf8112a1  ./tests/template.test.js
+663a1a5bd7fcd81d1de6fca8459084d92a16446a8ac2c88ede579d997d4d6aa2  ./tests/transition.test.js
+36b88df680a30f6ebfad2334123bcdf42e8c9091ce847d64db4fc1017e398e60  ./tests/ui-audit.test.js

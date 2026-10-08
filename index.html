@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#07111c" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
+  <title>Trade Avata Chart</title>
+  <link rel="icon" href="./public/brand/trade-avata-logo.svg" type="image/svg+xml" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <link rel="stylesheet" href="./assets/master-recovery.css" />
+</head>
+<body>
+  <div id="app" class="app-shell">
+    <header id="topbar" class="topbar"></header>
+    <aside id="leftbar" class="leftbar"></aside>
+    <main id="workspace" class="workspace">
+      <div id="chart-grid" class="chart-grid layout-1"></div>
+      <section id="bottom-panel" class="bottom-panel collapsed"></section>
+    </main>
+    <aside id="right-rail" class="right-rail"></aside>
+    <aside id="right-panel" class="right-panel"></aside>
+    <nav id="mobile-dock" class="mobile-dock"></nav>
+  </div>
+  <div id="floating-layer"></div>
+  <div id="modal-layer"></div>
+  <div id="toast-layer" class="toast-layer"></div>
+  <script type="module" src="./src/app.js"></script>
+  <script type="module" src="./src/master-recovery.js"></script>
+</body>
+</html>

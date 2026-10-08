@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>Trade Avata Native Engine v3.0 — Full Native Lab</title>
+  <meta name="theme-color" content="#07111c" />
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#07111c;--panel:#0b141e;--top:#06101a;--toolbar:#091522;
+      --line:#1b3348;--line2:#243b4f;--text:#dce9f5;--muted:#7e96aa;
+      --blue:#168cff;--up:#10c7b1;--down:#ff5b57;--orange:#f3a000;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button,select{font:inherit;color:inherit}
+    button{cursor:pointer}
+    .app{height:100%;display:grid;grid-template-rows:48px 42px minmax(0,1fr);background:var(--bg)}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px;border-bottom:1px solid var(--line);background:var(--top)}
+    .brand{display:flex;align-items:center;gap:8px;min-width:0}.mark{width:30px;height:30px;border-radius:8px;background:#2c6cfb;display:grid;place-items:center;font-weight:850;color:#fff}.brand strong{display:block;font-size:13px}.brand small{display:block;color:var(--muted);font-size:9px;white-space:nowrap}.status{font-size:9px;color:#77efd9;border:1px solid #145241;background:#073127;padding:5px 7px;border-radius:5px;white-space:nowrap}
+    .toolbar{display:flex;align-items:center;gap:3px;padding:4px 5px;border-bottom:1px solid var(--line);background:var(--toolbar);overflow-x:auto;scrollbar-width:none}.toolbar::-webkit-scrollbar{display:none}
+    .toolbar button,.toolbar select{height:31px;border:1px solid transparent;background:transparent;border-radius:4px;padding:0 7px;white-space:nowrap}.toolbar button:hover,.toolbar select:hover{background:#10263a;border-color:#24445d}.toolbar button.active{background:#0d5a98;border-color:#178ee8;color:#fff}.toolbar select{background:#0c1b29;border-color:#24445d}
+    .chart-shell{position:relative;min-width:0;min-height:0;background:var(--panel);overflow:hidden;touch-action:none;border:1px solid var(--line2);border-top:0}
+    #chart{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+    .overlay{position:absolute;z-index:3;pointer-events:none;font-size:10px;background:rgba(6,16,26,.64);backdrop-filter:blur(4px);padding:4px 6px;border-radius:4px}.overlay.left{left:6px;top:6px}.overlay.right{right:76px;top:6px;color:#94abc0}.overlay.bottom{left:6px;bottom:5px;color:#617b91;font-size:8px}.legend{display:flex;gap:7px;align-items:center;margin-top:2px;color:#93a8bb}.legend i{display:inline-block;width:7px;height:2px;margin-right:3px;vertical-align:middle}
+    .watermark{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-size:34px;font-weight:800;opacity:.035;letter-spacing:.04em}
+    @media(max-width:780px){.app{grid-template-rows:44px 40px minmax(0,1fr)}.topbar{padding:4px 5px}.mark{width:27px;height:27px}.brand strong{font-size:11px}.brand small,.status{display:none}.toolbar{padding-inline:3px}.toolbar button,.toolbar select{padding:0 6px;font-size:10px}.overlay.right{right:58px;font-size:8px}.overlay.bottom{font-size:7px;max-width:84%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.watermark{font-size:24px}}
+  </style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><div class="mark">TA</div><div><strong>Trade Avata Native Engine v3.0</strong><small>Full-native laboratory · own axes · own coordinates · own candles · own indicators</small></div></div>
+    <div class="status">NO TRADINGVIEW · NO LIGHTWEIGHT CHARTS</div>
+  </header>
+  <section class="toolbar">
+    <select id="symbol" aria-label="Symbol"></select>
+    <button data-kind="candles" class="active">Candles</button>
+    <button data-kind="heikin">Heiken</button>
+    <button data-kind="renko-pips">Renko R5</button>
+    <button data-kind="renko-time">Renko Time</button>
+    <select id="period" aria-label="Timeframe"></select>
+    <button id="emaBtn" class="active">EMA</button>
+    <button id="rsiBtn" class="active">RSI</button>
+    <button id="macdBtn">MACD</button>
+    <button id="drawBtn">Trend</button>
+    <button id="homeBtn">⌂ HOME</button>
+    <button id="autoBtn" class="active">AUTO</button>
+    <button id="liveBtn">↪ LIVE</button>
+    <button id="shotBtn">Snapshot</button>
+  </section>
+  <section class="chart-shell" id="shell">
+    <canvas id="chart" aria-label="Trade Avata native chart"></canvas>
+    <div class="overlay left"><strong id="title">XAUUSD · 15s · Candles</strong><div id="ohlc">O — H — L — C —</div><div class="legend" id="legend"></div></div>
+    <div class="overlay right" id="mode">AUTO · NATIVE</div>
+    <div class="overlay bottom">Drag chart: pan X/Y · Wheel/pinch: time zoom · Price axis drag/wheel: vertical zoom · HOME restores native view · Trend uses native bar+price coordinates</div>
+    <div class="watermark">TRADE AVATA</div>
+  </section>
+</main>
+
+<script type="module">
+import {
+  SYMBOLS,TIMEFRAMES,RENKO_TIME_PERIODS,
+  generateBars,buildPeriodBars,heikinAshi,formatPrice,periodLabel,timeframeSeconds
+} from '../src/data.js';
+import {computeIndicator} from '../src/indicators.js';
+import {historyPlanForPeriod,defaultHomeBars} from '../src/chart-transition.js';
+import {
+  TA_NATIVE_V3_BUILD,clamp,nativeWindow,xForIndex,indexForX,autoPriceRange,
+  yForPrice,priceForY,scaleRange,panRange,preservePriceAnchor,priceTicks,
+  timeTickIndices,homeSpacing,indicatorRange
+} from '../src/native-v3-core.js';
+
+const $=s=>document.querySelector(s);
+const canvas=$('#chart'),shell=$('#shell'),ctx=canvas.getContext('2d',{alpha:false});
+const DPR=()=>Math.max(1,Math.min(4,window.devicePixelRatio||1));
+const COLORS={bg:'#0b141e',grid:'#172a3a',axis:'#243b4f',text:'#7790a6',up:'#10c7b1',down:'#ff5b57',upBorder:'#0aa896',downBorder:'#db4a47',ema:'#168cff',ema2:'#f3a000',rsi:'#a76dff',macd:'#16a3ff',signal:'#f3a000',hist:'#64748b',cross:'#758b9e',draw:'#dce9f5'};
+const STORE='tradeAvataNativeV3Lab';
+
+function loadSaved(){try{return JSON.parse(localStorage.getItem(STORE)||'null')||{};}catch{return{};}}
+function saveSaved(v){try{localStorage.setItem(STORE,JSON.stringify(v));}catch{}}
+function fmtTime(sec,period){
+  const d=new Date(Number(sec)*1000),span=timeframeSeconds(period?.value||'15s');
+  if(span<86400)return d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:span<60?'2-digit':undefined});
+  return d.toLocaleDateString([],{month:'short',day:'numeric'});
+}
+function crisp(v,dpr,width=1){const px=Math.max(1,Math.round(width*dpr)),off=px%2?.5:0;return(Math.round(v*dpr-off)+off)/dpr;}
+function median(arr){if(!arr.length)return null;const a=[...arr].sort((x,y)=>x-y);return a[Math.floor(a.length/2)];}
+
+class NativeV3Chart{
+  constructor(){
+    const saved=loadSaved();
+    this.symbol=SYMBOLS[saved.symbol]?saved.symbol:'XAUUSD';
+    this.chartType=saved.chartType==='Heikin-Ashi'?'Heikin-Ashi':'Candles';
+    this.period=saved.period?.mode?{...saved.period}:{mode:'time',value:'15s'};
+    this.showEMA=saved.showEMA!==false;this.showRSI=saved.showRSI!==false;this.showMACD=!!saved.showMACD;
+    this.spacing=Number(saved.spacing)||8;this.scrollBars=0;this.mode='auto';this.manualRange=null;
+    this.cross=null;this.pointers=new Map();this.gesture=null;this.drag=null;this.dirty=false;this.raf=0;
+    this.drawMode=false;this.drawDraft=null;this.drawings=Array.isArray(saved.drawings)?saved.drawings:[];
+    this.replayIndex=null;this.live=true;this.livePrice=null;this.resizeObserver=new ResizeObserver(()=>this.resize());
+    this.resizeObserver.observe(shell);this.loadData({home:true,preserve:false});this.bind();this.startLive();
+  }
+
+  snapshot(){return{symbol:this.symbol,chartType:this.chartType,period:this.period,showEMA:this.showEMA,showRSI:this.showRSI,showMACD:this.showMACD,spacing:this.spacing,drawings:this.drawings};}
+  persist(){saveSaved(this.snapshot());}
+
+  resize(){
+    const r=shell.getBoundingClientRect(),dpr=DPR();this.w=Math.max(280,r.width);this.h=Math.max(220,r.height);
+    const W=Math.round(this.w*dpr),H=Math.round(this.h*dpr);if(canvas.width!==W)canvas.width=W;if(canvas.height!==H)canvas.height=H;
+    canvas.style.width='100%';canvas.style.height='100%';ctx.setTransform(dpr,0,0,dpr,0,0);ctx.imageSmoothingEnabled=false;this.invalidate();
+  }
+
+  geometry(){
+    const right=this.w<=780?58:74,bottom=this.w<=780?24:28,top=0,left=0;
+    const oscillators=(this.showRSI?1:0)+(this.showMACD?1:0),available=this.h-bottom;
+    const oscH=oscillators?Math.max(74,Math.min(128,available*.18)):0;
+    const mainH=Math.max(120,available-oscH*oscillators);
+    const panes=[];let y=mainH;
+    if(this.showRSI){panes.push({kind:'rsi',top:y,height:oscH});y+=oscH;}
+    if(this.showMACD){panes.push({kind:'macd',top:y,height:oscH});y+=oscH;}
+    return{left,top,right:this.w-right,bottom:y,width:this.w-right,height:mainH,timeY:y,axisRight:right,panes};
+  }
+
+  currentLength(){return this.replayIndex==null?this.displayBars.length:Math.min(this.displayBars.length,this.replayIndex+1);}
+  barsView(){return this.displayBars.slice(0,this.currentLength());}
+
+  captureAnchor(){
+    const g=this.geometry(),bars=this.barsView();if(!bars.length)return null;
+    const win=this.window();const range=this.priceRange(win);const price=bars.at(-1)?.close;
+    return{price,ratio:clamp((yForPrice(price,range,g.top,g.height)-g.top)/Math.max(1,g.height),.08,.92)};
+  }
+
+  loadData({home=true,preserve=true}={}){
+    const anchor=preserve?this.captureAnchor():null;
+    const plan=historyPlanForPeriod(this.period);this.rawBars=generateBars(this.symbol,plan.baseTimeframe,plan.count);
+    this.rebuildDerived();
+    if(anchor&&this.displayBars.length){
+      const g=this.geometry(),tmp=this.window(),base=autoPriceRange(this.displayBars,{start:tmp.start,end:tmp.end,pad:.08});
+      this.manualRange=preservePriceAnchor(null,base,anchor.price,anchor.ratio);this.mode='manual';
+    }
+    if(home)this.home();else this.invalidate();this.persist();
+  }
+
+  rebuildDerived(){
+    this.periodBars=buildPeriodBars(this.rawBars,this.symbol,this.period,{renkoPips:5,renkoTime:'1m',rangePips:5,tickCount:50});
+    this.displayBars=this.chartType==='Heikin-Ashi'?heikinAshi(this.periodBars):this.periodBars.slice();
+    this.computeIndicators();this.livePrice=this.rawBars.at(-1)?.close||this.displayBars.at(-1)?.close||SYMBOLS[this.symbol].base;
+    this.updateHeader();
+  }
+
+  computeIndicators(){
+    const base=this.displayBars;
+    this.indicators={};
+    if(this.showEMA){
+      this.indicators.ema20=computeIndicator({kind:'ema',pane:'price',name:'EMA 20',length:20,color:COLORS.ema},base);
+      this.indicators.ema50=computeIndicator({kind:'ema',pane:'price',name:'EMA 50',length:50,color:COLORS.ema2},base);
+    }
+    if(this.showRSI)this.indicators.rsi=computeIndicator({kind:'rsi',pane:'oscillator',name:'RSI 14',length:14,color:COLORS.rsi},base);
+    if(this.showMACD)this.indicators.macd=computeIndicator({kind:'macd',pane:'oscillator',name:'MACD',fast:12,slow:26,signal:9,color:COLORS.macd,signalColor:COLORS.signal,histColor:COLORS.hist},base);
+  }
+
+  window(){
+    const g=this.geometry(),len=this.currentLength();
+    return nativeWindow({length:len,plotWidth:g.width,spacing:this.spacing,scrollBars:this.scrollBars,liveGapPercent:10,edgePadding:3});
+  }
+
+  priceRange(win=this.window()){
+    if(this.mode==='manual'&&this.manualRange)return this.manualRange;
+    return autoPriceRange(this.barsView(),{start:win.start,end:win.end,pad:.09});
+  }
+
+  home(){
+    const g=this.geometry(),len=this.currentLength(),target=defaultHomeBars({period:this.period,isMobile:this.w<=780,length:len});
+    this.spacing=homeSpacing(g.width,target,10);this.scrollBars=0;this.mode='auto';this.manualRange=null;this.live=true;this.cross=null;this.invalidate();this.persist();
+  }
+  goLive(){this.scrollBars=0;this.live=true;this.invalidate();}
+  toggleAuto(){
+    if(this.mode==='auto'){this.manualRange=this.priceRange();this.mode='manual';}
+    else{this.mode='auto';this.manualRange=null;}
+    this.updateHeader();this.invalidate();
+  }
+
+  setConstruction(kind){
+    const anchor=this.captureAnchor();
+    if(kind==='candles'){this.chartType='Candles';if(this.period.mode!=='time')this.period={mode:'time',value:'15s'};}
+    if(kind==='heikin'){this.chartType='Heikin-Ashi';if(this.period.mode!=='time')this.period={mode:'time',value:'15s'};}
+    if(kind==='renko-pips'){this.chartType='Candles';this.period={mode:'renko-pips',value:5};}
+    if(kind==='renko-time'){this.chartType='Candles';this.period={mode:'renko-time',value:'1m'};}
+    this.loadData({home:true,preserve:false});
+    if(anchor&&this.displayBars.length){
+      const g=this.geometry(),win=this.window(),base=autoPriceRange(this.displayBars,{start:win.start,end:win.end,pad:.09});
+      this.manualRange=preservePriceAnchor(null,base,anchor.price,anchor.ratio);this.mode='manual';
+    }
+    this.syncControls();this.invalidate();
+  }
+
+  setPeriod(value){
+    if(this.period.mode==='renko-time')this.period={mode:'renko-time',value};
+    else if(this.period.mode==='renko-pips')this.period={mode:'renko-pips',value:Number(value)||5};
+    else this.period={mode:'time',value};
+    this.loadData({home:true,preserve:true});this.syncControls();
+  }
+
+  setSymbol(symbol){if(!SYMBOLS[symbol]||symbol===this.symbol)return;this.symbol=symbol;this.loadData({home:true,preserve:false});this.syncControls();}
+
+  toggleIndicator(kind){
+    if(kind==='ema')this.showEMA=!this.showEMA;if(kind==='rsi')this.showRSI=!this.showRSI;if(kind==='macd')this.showMACD=!this.showMACD;
+    this.computeIndicators();this.syncControls();this.invalidate();this.persist();
+  }
+
+  bind(){
+    canvas.addEventListener('pointerdown',e=>this.pointerDown(e));
+    canvas.addEventListener('pointermove',e=>this.pointerMove(e));
+    canvas.addEventListener('pointerup',e=>this.pointerUp(e));
+    canvas.addEventListener('pointercancel',e=>this.pointerUp(e));
+    canvas.addEventListener('pointerleave',()=>{if(!this.drag&&!this.pointers.size){this.cross=null;this.invalidate();}});
+    canvas.addEventListener('wheel',e=>this.wheel(e),{passive:false});
+    canvas.addEventListener('dblclick',()=>this.home());
+  }
+
+  point(e){const r=canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+
+  pointerDown(e){
+    const p=this.point(e);canvas.setPointerCapture?.(e.pointerId);this.pointers.set(e.pointerId,p);
+    if(this.pointers.size===2){const pts=[...this.pointers.values()];this.gesture={distance:Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y),spacing:this.spacing};this.drag=null;return;}
+    const g=this.geometry();
+    if(this.drawMode&&p.x<g.right&&p.y<g.height){
+      const win=this.window(),range=this.priceRange(win),logical=indexForX(p.x,win),price=priceForY(p.y,range,g.top,g.height);
+      if(!this.drawDraft){this.drawDraft={a:{logical,price},b:{logical,price}};}
+      else{this.drawDraft.b={logical,price};this.drawings.push(this.drawDraft);this.drawDraft=null;this.drawMode=false;$('#drawBtn').classList.remove('active');this.persist();}
+      this.invalidate();return;
+    }
+    this.drag={start:p,last:p,scroll:this.scrollBars,range:{...this.priceRange()},axis:p.x>=g.right,manual:this.mode==='manual'};
+  }
+
+  pointerMove(e){
+    const p=this.point(e);if(this.pointers.has(e.pointerId))this.pointers.set(e.pointerId,p);
+    if(this.pointers.size===2&&this.gesture){const pts=[...this.pointers.values()],dist=Math.max(10,Math.hypot(pts[1].x-pts[0].x,pts[1].y-pts[0].y));this.spacing=clamp(this.gesture.spacing*(dist/this.gesture.distance),1.25,34);this.invalidate();return;}
+    const g=this.geometry();
+    if(this.drawMode&&this.drawDraft){const win=this.window(),range=this.priceRange(win);this.drawDraft.b={logical:indexForX(p.x,win),price:priceForY(p.y,range,g.top,g.height)};this.invalidate();return;}
+    if(this.drag){
+      const dx=p.x-this.drag.start.x,dy=p.y-this.drag.start.y;
+      if(this.drag.axis){
+        const factor=Math.exp(dy/180);const anchor=priceForY(this.drag.start.y,this.drag.range,g.top,g.height);this.manualRange=scaleRange(this.drag.range,factor,anchor,(this.drag.start.y-g.top)/g.height);this.mode='manual';
+      }else{
+        this.scrollBars=this.drag.scroll+dx/Math.max(1.25,this.spacing);this.live=this.scrollBars>=-.1;
+        if(Math.abs(dy)>1){const span=this.drag.range.max-this.drag.range.min,shift=-dy/g.height*span;this.manualRange=panRange(this.drag.range,shift);this.mode='manual';}
+      }
+      this.updateHeader();this.invalidate();return;
+    }
+    this.cross=p;this.invalidate();
+  }
+
+  pointerUp(e){this.pointers.delete(e.pointerId);if(this.pointers.size<2)this.gesture=null;if(this.drag){this.drag=null;this.persist();}this.invalidate();}
+
+  wheel(e){
+    e.preventDefault();const p=this.point(e),g=this.geometry();
+    if(p.x>=g.right){const range=this.priceRange(),factor=Math.exp(e.deltaY*.0015),anchor=priceForY(p.y,range,g.top,g.height);this.manualRange=scaleRange(range,factor,anchor,(p.y-g.top)/g.height);this.mode='manual';}
+    else{const before=this.window(),logical=indexForX(p.x,before),factor=Math.exp(-e.deltaY*.0012),newSpacing=clamp(this.spacing*factor,1.25,34);this.spacing=newSpacing;const after=this.window(),afterLogical=indexForX(p.x,after);this.scrollBars+=(afterLogical-logical);}
+    this.updateHeader();this.invalidate();this.persist();
+  }
+
+  startLive(){
+    setInterval(()=>{
+      if(!this.rawBars?.length)return;
+      const plan=historyPlanForPeriod(this.period),sec=Math.max(1,timeframeSeconds(plan.baseTimeframe)),now=Math.floor(Date.now()/1000),bucket=Math.floor(now/sec)*sec;
+      let last=this.rawBars.at(-1),price=this.livePrice||last.close;
+      if(bucket>last.time){const open=price;this.rawBars.push({time:bucket,open,high:open,low:open,close:open,volume:200});if(this.rawBars.length>plan.count)this.rawBars.shift();last=this.rawBars.at(-1);}
+      const cfg=SYMBOLS[this.symbol],move=(Math.random()-.5)*Math.max(cfg.minMove*2,price*cfg.volPerSqrtSecond*Math.sqrt(sec)*.8);price=Math.max(cfg.minMove,price+move);this.livePrice=price;last.close=price;last.high=Math.max(last.high,price);last.low=Math.min(last.low,price);last.volume=(last.volume||0)+Math.round(Math.random()*40);
+      const oldLen=this.displayBars?.length||0;this.rebuildDerived();if(this.live&&this.displayBars.length!==oldLen)this.scrollBars=0;this.invalidate();
+    },1400);
+  }
+
+  invalidate(){if(this.dirty)return;this.dirty=true;this.raf=requestAnimationFrame(()=>{this.dirty=false;this.draw();});}
+
+  draw(){
+    if(!this.w||!this.h)this.resize();
+    const g=this.geometry(),bars=this.barsView(),win=this.window(),range=this.priceRange(win);
+    ctx.fillStyle=COLORS.bg;ctx.fillRect(0,0,this.w,this.h);
+    this.drawMainGrid(g,range,win,bars);
+    this.drawPriceSeries(g,range,win,bars);
+    this.drawPriceIndicators(g,range,win);
+    this.drawOscillators(g,win);
+    this.drawAxes(g,range,win,bars);
+    this.drawDrawings(g,range,win);
+    this.drawCrosshair(g,range,win,bars);
+    this.updateOHLC(g,range,win,bars);
+  }
+
+  drawMainGrid(g,range,win,bars){
+    ctx.lineWidth=1;ctx.strokeStyle=COLORS.grid;ctx.fillStyle=COLORS.text;ctx.font='9px Inter,system-ui,sans-serif';
+    for(const p of priceTicks(range,7)){const y=crisp(yForPrice(p,range,g.top,g.height),DPR(),1);ctx.beginPath();ctx.moveTo(g.left,y);ctx.lineTo(g.right,y);ctx.stroke();}
+    for(const i of timeTickIndices(win,8)){const x=crisp(xForIndex(i,win),DPR(),1);ctx.beginPath();ctx.moveTo(x,g.top);ctx.lineTo(x,g.timeY);ctx.stroke();}
+    ctx.strokeStyle=COLORS.axis;ctx.beginPath();ctx.moveTo(g.right,0);ctx.lineTo(g.right,g.timeY+24);ctx.stroke();
+    for(const pane of g.panes){ctx.strokeStyle=COLORS.axis;ctx.beginPath();ctx.moveTo(0,pane.top+.5);ctx.lineTo(g.right,pane.top+.5);ctx.stroke();}
+  }
+
+  drawPriceSeries(g,range,win,bars){
+    const renko=this.period.mode==='renko-pips'||this.period.mode==='renko-time';
+    for(let i=win.start;i<=win.end;i++){
+      const b=bars[i];if(!b)continue;const x=xForIndex(i,win);if(x==null||x<-20||x>g.right+20)continue;
+      const yo=yForPrice(b.open,range,g.top,g.height),yc=yForPrice(b.close,range,g.top,g.height),yh=yForPrice(b.high,range,g.top,g.height),yl=yForPrice(b.low,range,g.top,g.height),up=b.close>=b.open;
+      if(renko){
+        const bw=clamp(win.spacing*.96,2,30),left=Math.round((x-bw/2)*DPR())/DPR(),top=Math.min(yo,yc),h=Math.max(1/DPR(),Math.abs(yc-yo));ctx.fillStyle=up?COLORS.up:COLORS.down;ctx.fillRect(left,top,bw,h);ctx.strokeStyle=up?COLORS.upBorder:COLORS.downBorder;ctx.strokeRect(left,top,bw,h);continue;
+      }
+      const bw=win.spacing>=1.15?clamp(win.spacing*.68,1.1,24):1,sx=crisp(x,DPR(),1);ctx.strokeStyle=up?COLORS.up:COLORS.down;ctx.beginPath();ctx.moveTo(sx,yh);ctx.lineTo(sx,yl);ctx.stroke();const top=Math.min(yo,yc),h=Math.max(1/DPR(),Math.abs(yc-yo)),left=Math.round((x-bw/2)*DPR())/DPR();ctx.fillStyle=up?COLORS.up:COLORS.down;ctx.fillRect(left,top,bw,h);ctx.strokeStyle=up?COLORS.upBorder:COLORS.downBorder;if(bw>=2)ctx.strokeRect(left,top,bw,h);
+    }
+  }
+
+  drawLine(values,color,g,range,win,width=1.5){
+    if(!values)return;ctx.beginPath();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineJoin='round';ctx.lineCap='round';let open=false;
+    for(let i=win.start;i<=win.end;i++){const v=values[i],x=xForIndex(i,win),y=Number.isFinite(v)?yForPrice(v,range,g.top,g.height):null;if(!Number.isFinite(x)||!Number.isFinite(y)){open=false;continue;}if(!open){ctx.moveTo(x,y);open=true;}else ctx.lineTo(x,y);}ctx.stroke();
+  }
+
+  drawPriceIndicators(g,range,win){
+    if(this.showEMA){this.drawLine(this.indicators.ema20?.series?.[0]?.values,COLORS.ema,g,range,win,1.5);this.drawLine(this.indicators.ema50?.series?.[0]?.values,COLORS.ema2,g,range,win,1.2);}
+  }
+
+  drawOscillators(g,win){
+    for(const pane of g.panes){
+      const model=pane.kind==='rsi'?this.indicators.rsi:this.indicators.macd;if(!model)continue;
+      const fixed=model.range?{min:model.range.min,max:model.range.max}:null,ir=indicatorRange(model.series,win.start,win.end,{guides:model.guides||[],fixed,pad:.10});
+      const y=v=>yForPrice(v,ir,pane.top,pane.height);
+      ctx.font='8px Inter,system-ui,sans-serif';ctx.fillStyle=COLORS.text;ctx.fillText(pane.kind.toUpperCase(),5,pane.top+11);
+      for(const guide of model.guides||[]){ctx.strokeStyle='rgba(148,163,184,.28)';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(0,y(guide));ctx.lineTo(g.right,y(guide));ctx.stroke();ctx.setLineDash([]);}
+      for(const s of model.series){
+        if(s.type==='histogram'){
+          for(let i=win.start;i<=win.end;i++){const v=s.values[i];if(!Number.isFinite(v))continue;const x=xForIndex(i,win),zero=y(0),yy=y(v),bw=Math.max(1,Math.min(10,win.spacing*.62));ctx.fillStyle=s.color||COLORS.hist;ctx.globalAlpha=.7;ctx.fillRect(x-bw/2,Math.min(zero,yy),bw,Math.max(1,Math.abs(zero-yy)));ctx.globalAlpha=1;}
+        }else{
+          ctx.beginPath();ctx.strokeStyle=s.color||COLORS.rsi;ctx.lineWidth=1.2;let open=false;for(let i=win.start;i<=win.end;i++){const v=s.values[i],x=xForIndex(i,win),yy=Number.isFinite(v)?y(v):null;if(!Number.isFinite(x)||!Number.isFinite(yy)){open=false;continue;}if(!open){ctx.moveTo(x,yy);open=true;}else ctx.lineTo(x,yy);}ctx.stroke();
+        }
+      }
+    }
+  }
+
+  drawAxes(g,range,win,bars){
+    ctx.font='9px Inter,system-ui,sans-serif';ctx.fillStyle=COLORS.text;ctx.textBaseline='middle';
+    for(const p of priceTicks(range,7)){const y=yForPrice(p,range,g.top,g.height);ctx.fillText(formatPrice(this.symbol,p),g.right+5,y);}
+    ctx.textBaseline='top';
+    for(const i of timeTickIndices(win,7)){const b=bars[i];if(!b)continue;const x=xForIndex(i,win),text=fmtTime(b.sourceTime||b.time,this.period);ctx.fillText(text,clamp(x-18,0,g.right-42),g.timeY+5);}
+    const last=bars.at(-1);if(last){const y=yForPrice(last.close,range,g.top,g.height);if(y>=0&&y<=g.height){ctx.fillStyle='#168cff';ctx.fillRect(g.right,y-9,g.axisRight,18);ctx.fillStyle='#fff';ctx.fillText(formatPrice(this.symbol,last.close),g.right+5,y-5);}}
+  }
+
+  drawingPoint(pt,g,range,win){return{x:xForIndex(pt.logical,win),y:yForPrice(pt.price,range,g.top,g.height)};}
+  drawDrawings(g,range,win){
+    const all=[...this.drawings,...(this.drawDraft?[this.drawDraft]:[])];ctx.strokeStyle=COLORS.draw;ctx.lineWidth=1.2;
+    for(const d of all){const a=this.drawingPoint(d.a,g,range,win),b=this.drawingPoint(d.b,g,range,win);if(!Number.isFinite(a.x)||!Number.isFinite(b.x))continue;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();for(const p of[a,b]){ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(p.x,p.y,3,0,Math.PI*2);ctx.fill();}}
+  }
+
+  drawCrosshair(g,range,win,bars){
+    if(!this.cross||this.drag)return;const p=this.cross;if(p.x<0||p.x>g.right||p.y<0||p.y>g.timeY)return;ctx.strokeStyle=COLORS.cross;ctx.lineWidth=1;ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(p.x,0);ctx.lineTo(p.x,g.timeY);ctx.moveTo(0,p.y);ctx.lineTo(g.right,p.y);ctx.stroke();ctx.setLineDash([]);
+    if(p.y<g.height){const price=priceForY(p.y,range,g.top,g.height);ctx.fillStyle='#173042';ctx.fillRect(g.right,p.y-9,g.axisRight,18);ctx.fillStyle='#fff';ctx.font='9px Inter,system-ui,sans-serif';ctx.fillText(formatPrice(this.symbol,price),g.right+5,p.y+3);}
+    const logical=indexForX(p.x,win),idx=clamp(Math.round(logical),0,bars.length-1),b=bars[idx];if(b){ctx.fillStyle='#173042';ctx.fillRect(clamp(p.x-29,0,g.right-58),g.timeY,58,20);ctx.fillStyle='#fff';ctx.fillText(fmtTime(b.sourceTime||b.time,this.period),clamp(p.x-25,4,g.right-52),g.timeY+5);}
+  }
+
+  updateOHLC(g,range,win,bars){
+    let idx=bars.length-1;if(this.cross){idx=clamp(Math.round(indexForX(this.cross.x,win)),0,bars.length-1);}const b=bars[idx];if(!b)return;
+    $('#ohlc').textContent=`O ${formatPrice(this.symbol,b.open)}  H ${formatPrice(this.symbol,b.high)}  L ${formatPrice(this.symbol,b.low)}  C ${formatPrice(this.symbol,b.close)}`;
+  }
+
+  updateHeader(){
+    $('#title').textContent=`${this.symbol} · ${periodLabel(this.period)} · ${this.chartType==='Heikin-Ashi'?'Heiken Ashi':this.period.mode.startsWith('renko')?'Renko':'Candles'}`;
+    $('#mode').textContent=`${this.mode.toUpperCase()} · NATIVE${this.live?' · LIVE':''}`;
+    const legend=[];if(this.showEMA){legend.push(`<span><i style="background:${COLORS.ema}"></i>EMA20</span>`,`<span><i style="background:${COLORS.ema2}"></i>EMA50</span>`);}if(this.showRSI)legend.push('<span>RSI14</span>');if(this.showMACD)legend.push('<span>MACD</span>');$('#legend').innerHTML=legend.join('');
+    $('#autoBtn').classList.toggle('active',this.mode==='auto');
+  }
+
+  syncControls(){
+    $('#symbol').value=this.symbol;document.querySelectorAll('[data-kind]').forEach(b=>{const k=b.dataset.kind,active=(k==='heikin'&&this.chartType==='Heikin-Ashi')||(k==='candles'&&this.chartType==='Candles'&&this.period.mode==='time')||(k===this.period.mode);b.classList.toggle('active',active);});
+    $('#emaBtn').classList.toggle('active',this.showEMA);$('#rsiBtn').classList.toggle('active',this.showRSI);$('#macdBtn').classList.toggle('active',this.showMACD);
+    fillPeriods();this.updateHeader();
+  }
+}
+
+const engine=new NativeV3Chart();window.__tradeAvataNativeV3=engine;window.__tradeAvataNativeV3Build=TA_NATIVE_V3_BUILD;
+
+for(const sym of Object.keys(SYMBOLS)){const o=document.createElement('option');o.value=sym;o.textContent=sym;$('#symbol').append(o);}
+$('#symbol').addEventListener('change',e=>engine.setSymbol(e.target.value));
+
+document.querySelectorAll('[data-kind]').forEach(b=>b.addEventListener('click',()=>engine.setConstruction(b.dataset.kind)));
+function fillPeriods(){
+  const sel=$('#period');sel.innerHTML='';let values;
+  if(engine.period.mode==='renko-pips')values=[1,2,3,5,10,15,20,30,50,100].map(v=>[String(v),`R${v}`]);
+  else if(engine.period.mode==='renko-time')values=RENKO_TIME_PERIODS.map(v=>[v,`RT ${v}`]);
+  else values=TIMEFRAMES.map(([v,label])=>[v,label]);
+  for(const [v,label] of values){const o=document.createElement('option');o.value=v;o.textContent=label;o.selected=String(engine.period.value)===String(v);sel.append(o);}
+}
+$('#period').addEventListener('change',e=>engine.setPeriod(e.target.value));
+$('#emaBtn').addEventListener('click',()=>engine.toggleIndicator('ema'));$('#rsiBtn').addEventListener('click',()=>engine.toggleIndicator('rsi'));$('#macdBtn').addEventListener('click',()=>engine.toggleIndicator('macd'));
+$('#drawBtn').addEventListener('click',e=>{engine.drawMode=!engine.drawMode;engine.drawDraft=null;e.currentTarget.classList.toggle('active',engine.drawMode);});
+$('#homeBtn').addEventListener('click',()=>engine.home());$('#autoBtn').addEventListener('click',()=>engine.toggleAuto());$('#liveBtn').addEventListener('click',()=>engine.goLive());
+$('#shotBtn').addEventListener('click',()=>{canvas.toBlob(blob=>{if(!blob)return;const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`trade-avata-native-v3-${engine.symbol}.png`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);},'image/png');});
+window.addEventListener('keydown',e=>{if(e.key==='Home')engine.home();if(e.key==='Escape'){engine.drawMode=false;engine.drawDraft=null;$('#drawBtn').classList.remove('active');engine.invalidate();}});
+engine.syncControls();engine.resize();
+</script>
+</body>
+</html>

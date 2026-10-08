@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>Trade Avata Native Chart Engine v2.7</title>
+  <meta name="theme-color" content="#07111c" />
+  <style>
+    :root{
+      color-scheme:dark;
+      --bg:#07111c;--top:#06101a;--toolbar:#091522;--panel:#0b141e;
+      --line:#1b3348;--line2:#243b4f;--text:#dce9f5;--muted:#7e96aa;
+      --blue:#168cff;--green:#10c7b1;--red:#ff5b57;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    button{font:inherit;color:inherit}
+    .app{height:100%;display:grid;grid-template-rows:50px 42px minmax(0,1fr);background:var(--bg)}
+    .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 9px;border-bottom:1px solid var(--line);background:var(--top)}
+    .brand{display:flex;align-items:center;gap:8px;min-width:0}.brand strong{display:block;font-size:13px;white-space:nowrap}.brand small{display:block;color:var(--muted);font-size:9px;white-space:nowrap}
+    .mark{width:29px;height:29px;border-radius:8px;background:#2c6cfb;display:grid;place-items:center;font-weight:850;color:#fff;letter-spacing:-1px;flex:none}
+    .status{font-size:9px;color:#77efd9;border:1px solid #145241;background:#073127;padding:5px 7px;border-radius:5px;white-space:nowrap}
+    .toolbar{display:flex;align-items:center;gap:3px;padding:4px 5px;border-bottom:1px solid var(--line);background:var(--toolbar);overflow-x:auto;scrollbar-width:none}.toolbar::-webkit-scrollbar{display:none}
+    .symbol{height:31px;display:flex;align-items:center;gap:5px;padding:0 8px;border:1px solid #24445d;border-radius:5px;background:#0c1b29;font-weight:700;white-space:nowrap}.symbol span{font-size:9px;color:var(--muted);font-weight:500}
+    .periods{display:flex;gap:1px}.periods button,.toolbar>button{height:31px;border:1px solid transparent;background:transparent;border-radius:4px;padding:0 7px;cursor:pointer;white-space:nowrap}.periods button:hover,.toolbar>button:hover{background:#10263a;border-color:#24445d}.periods button.active,.toolbar>button.active{background:#0d5a98;border-color:#178ee8;color:#fff}
+    .chart-shell{position:relative;min-width:0;min-height:0;background:var(--panel);overflow:hidden;touch-action:none;border:1px solid var(--line2);border-top:0}
+    #chart{position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+    #candleLayer{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;overflow:hidden;shape-rendering:crispEdges}
+    .chart-overlay{position:absolute;z-index:2;top:6px;pointer-events:none;font-size:10px;background:rgba(6,16,26,.58);backdrop-filter:blur(4px);padding:4px 6px;border-radius:4px}.chart-overlay.left{left:5px;display:flex;gap:8px;align-items:center}.chart-overlay.left span{color:#7ebee9}.chart-overlay.right{right:74px;color:#94abc0}
+    .hint{position:absolute;left:5px;bottom:4px;font-size:8px;color:#617b91;pointer-events:none;background:rgba(6,16,26,.55);padding:3px 5px;border-radius:4px}
+    body.light{--bg:#f1f5f9;--top:#fff;--toolbar:#f7fafc;--panel:#fff;--line:#d8e1ea;--line2:#cbd6df;--text:#1d2a36;--muted:#66798a;background:#f1f5f9;color:#1d2a36}.light .symbol{background:#fff}.light .chart-overlay{background:rgba(255,255,255,.82)}.light .hint{background:rgba(255,255,255,.8)}
+    @media(max-width:780px){
+      .app{grid-template-rows:46px 40px minmax(0,1fr)}.topbar{padding:4px 6px}.mark{width:27px;height:27px}.brand small{display:none}.brand strong{font-size:11px}.status{display:none}
+      .toolbar{padding-inline:3px}.symbol span{display:none}.periods button,.toolbar>button{padding:0 6px;font-size:11px}.chart-overlay.left{max-width:70%;overflow:hidden;white-space:nowrap}.chart-overlay.left span{display:none}.chart-overlay.right{right:62px;font-size:8px}.hint{font-size:7px;max-width:88%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    }
+  </style>
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="brand"><div class="mark">TA</div><div><strong>Trade Avata Native Chart Engine</strong><small>Research build · own Canvas renderer · desktop + mobile</small></div></div>
+    <div class="status" id="engineStatus">NATIVE v2.7 · LIVE GAP + PRICE-ZONE TF SWITCH · STABILITY TEST BUILD</div>
+  </header>
+  <section class="toolbar" aria-label="Chart controls">
+    <div class="symbol">XAUUSD <span>Gold</span></div>
+    <div class="periods" id="periods"></div>
+    <button id="homeBtn" type="button">HOME</button>
+    <button id="autoBtn" type="button" class="active">AUTO</button>
+    <button id="liveBtn" type="button">LIVE</button>
+    <button id="themeBtn" type="button">THEME</button>
+  </section>
+  <section class="chart-shell" id="chartShell">
+    <canvas id="chart" aria-label="Trade Avata native candlestick chart"></canvas>
+    <svg id="candleLayer" aria-hidden="true" preserveAspectRatio="none"></svg>
+    <div class="chart-overlay left"><strong id="symbolLabel">XAUUSD · 15s</strong><span id="ohlcLabel">O — H — L — C —</span></div>
+    <div class="chart-overlay right"><span id="modeLabel">AUTO · PROTECTED</span></div>
+    <div class="hint">Drag chart: free X/Y · Pinch: time zoom · Price scale: vertical zoom · Live gap is not a clipping wall · Timeframe price stays inside a zone · Refresh remembers view</div>
+  </section>
+</main>
+<script type="module">
+const PERIODS=['1s','5s','15s','30s','1m','5m','15m','30m','1h','4h','1D'];
+const TF_SECONDS={'1s':1,'5s':5,'15s':15,'30s':30,'1m':60,'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400};
+const COLORS={
+  dark:{bg:'#0b141e',grid:'#172a3a',text:'#7e96aa',up:'#10c7b1',down:'#ff5b57',wickUp:'#10c7b1',wickDown:'#ff5b57',borderUp:'#0aa896',borderDown:'#db4a47',cross:'#72879a',price:'#168cff',axis:'#243b4f'},
+  light:{bg:'#ffffff',grid:'#e5ebf0',text:'#66798a',up:'#089981',down:'#f23645',wickUp:'#089981',wickDown:'#f23645',borderUp:'#067b6b',borderDown:'#c42a36',cross:'#8292a0',price:'#168cff',axis:'#cbd6df'}
+};
+function clamp(v,min,max){return Math.max(min,Math.min(max,v));}
+function mulberry32(seed){return function(){let t=seed+=0x6D2B79F5;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;};}
+function fmtPrice(v){return Number(v).toFixed(2);}
+function tfMs(tf){return(TF_SECONDS[tf]||15)*1000;}
+function niceStep(raw){const p=10**Math.floor(Math.log10(Math.max(raw,1e-9)));const n=raw/p;return(n<=1?1:n<=2?2:n<=5?5:10)*p;}
+function generateBars(tf,count=20000){
+  const step=tfMs(tf),now=Date.now(),end=Math.floor(now/step)*step,rnd=mulberry32(1097+step%1000003);let price=4116.3+(TF_SECONDS[tf]||15)*0.002;const bars=[];
+  for(let i=count-1;i>=0;i--){const time=end-i*step,phase=count-i,cyc=Math.sin(phase/37)*.16+Math.sin(phase/121)*.28,vol=(.10+rnd()*.28)*Math.sqrt(Math.max(1,TF_SECONDS[tf]/15));const open=price,close=open+(rnd()-.5)*vol+cyc*.035,high=Math.max(open,close)+rnd()*vol*.55,low=Math.min(open,close)-rnd()*vol*.55;bars.push({time,open,high,low,close});price=close;}
+  return bars;
+}
+class NativeChart{
+  constructor(canvas){
+    this.canvas=canvas;this.ctx=canvas.getContext('2d',{alpha:false});this.svg=document.querySelector('#candleLayer');
+    this.storageKey='tradeAvataNativeChartV25State';
+    const boot=this.readPersistentState();
+    this.tf=TF_SECONDS[boot?.activeTf]?boot.activeTf:'15s';this.frames=new Map();this.viewStates=new Map();this.bars=generateBars(this.tf);
+    this.marketPrice=Number.isFinite(Number(boot?.marketPrice))?Number(boot.marketPrice):(this.bars.at(-1)?.close||4107.50);this.frames.set(this.tf,this.bars);this.syncBarsToMarketPrice();
+    this.spacing=8;this.defaultSpacing=8;this.liveGapPct=10;this.priceZoneHalf=0.12;this.scrollBars=0;this.mode='auto';this.manualRange=null;this.autoAnchorRatio=null;this.autoScaleFactor=null;this.crosshair=null;this.pointerMap=new Map();this.gesture=null;this.theme=boot?.theme==='light'?'light':'dark';this.frame=0;this.dirty=true;this.lastTap=0;this.persistTimer=null;
+    this.plot={left:0,top:0,right:72,bottom:28};document.body.classList.toggle('light',this.theme==='light');
+    this.resizeObserver=new ResizeObserver(()=>this.resize());this.resizeObserver.observe(canvas.parentElement);this.bind();this.resize();
+    if(boot?.activeView&&typeof boot.activeView==='object')this.restoreTimeframeState(structuredClone(boot.activeView));
+    this.viewStates.set(this.tf,this.captureViewState());
+    window.addEventListener('pagehide',()=>this.persistNow());document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')this.persistNow();});
+    this.startLive();this.invalidate();
+  }
+  readPersistentState(){
+    const parse=v=>{try{return v?JSON.parse(v):null;}catch{return null;}};
+    try{const v=parse(localStorage.getItem(this.storageKey));if(v)return v;}catch{}
+    try{const v=parse(sessionStorage.getItem(this.storageKey));if(v)return v;}catch{}
+    try{const prefix=this.storageKey+'::',raw=String(window.name||'');if(raw.startsWith(prefix)){const v=parse(raw.slice(prefix.length));if(v)return v;}}catch{}
+    return null;
+  }
+  persistentPayload(){return{version:2,activeTf:this.tf,theme:this.theme,marketPrice:this.marketPrice,activeView:this.captureViewState()};}
+  persistNow(){
+    if(this.persistTimer){clearTimeout(this.persistTimer);this.persistTimer=null;}
+    const json=JSON.stringify(this.persistentPayload()),prefix=this.storageKey+'::';
+    // localStorage is primary in the deployed site. sessionStorage + window.name make
+    // refresh-memory work while testing downloaded file/content URLs where persistent
+    // storage can be browser-dependent or blocked.
+    try{localStorage.setItem(this.storageKey,json);}catch{}
+    try{sessionStorage.setItem(this.storageKey,json);}catch{}
+    try{window.name=prefix+json;}catch{}
+  }
+  schedulePersist(){if(this.persistTimer)clearTimeout(this.persistTimer);this.persistTimer=setTimeout(()=>this.persistNow(),120);}
+  markViewChanged(){this.viewStates.set(this.tf,this.captureViewState());this.schedulePersist();}
+  colors(){return COLORS[this.theme];}
+  isMobile(){return this.w<=780;}
+  resize(){
+    const r=this.canvas.parentElement.getBoundingClientRect(),requested=Math.max(1,Math.min(4,window.devicePixelRatio||1));
+    this.w=Math.max(280,r.width);this.h=Math.max(200,r.height);this.plot.right=this.isMobile()?60:72;this.plot.bottom=this.isMobile()?24:28;
+    // Use the ACTUAL backing-store/CSS ratio, not the nominal devicePixelRatio.
+    // Fractional Windows scaling (125%, 150%, etc.) can otherwise make the browser
+    // resample the whole canvas by a tiny amount and soften every candle edge.
+    const pw=Math.max(1,Math.round(this.w*requested)),ph=Math.max(1,Math.round(this.h*requested));
+    if(this.canvas.width!==pw||this.canvas.height!==ph){this.canvas.width=pw;this.canvas.height=ph;}
+    this.canvas.style.width='100%';this.canvas.style.height='100%';
+    this.scaleX=this.canvas.width/this.w;this.scaleY=this.canvas.height/this.h;this.dpr=(this.scaleX+this.scaleY)/2;
+    this.ctx.setTransform(this.scaleX,0,0,this.scaleY,0,0);this.ctx.imageSmoothingEnabled=false;if(this.svg)this.svg.setAttribute('viewBox',`0 0 ${this.w} ${this.h}`);this.invalidate();
+  }
+  invalidate(){this.dirty=true;if(!this.frame)this.frame=requestAnimationFrame(()=>this.draw());}
+  geometry(){const p=this.plot;return{x0:p.left,y0:p.top,x1:this.w-p.right,y1:this.h-p.bottom,w:this.w-p.left-p.right,h:this.h-p.top-p.bottom};}
+  candleBodyWidth(){return this.spacing>=1.15?clamp(this.spacing*.70,1.1,24):1;}
+  edgePadding(){return Math.max(1,Math.min(14,this.candleBodyWidth()/2+this.hair()));}
+  futureOffsetPx(){return Math.max(0,-this.scrollBars)*Math.max(this.spacing,.0001);}
+  viewport(){
+    const g=this.geometry(),spacing=Math.max(this.spacing,.0001),edgePad=this.edgePadding(),lastIndex=this.bars.length-1;
+    // The live gap is ONLY the default live-position offset. It is not a forbidden
+    // strip. Horizontal panning moves the real last candle through that space and,
+    // if the user keeps scrolling, beyond the plot edge exactly like a normal chart.
+    const capacityExact=Math.max(1,g.w/spacing),capacity=Math.max(1,Math.ceil(capacityExact));
+    const liveGapPx=clamp(g.w*(this.liveGapPct/100),0,g.w*.30);
+    const maxFuturePx=Math.max(0,g.w*.50-liveGapPx-edgePad);
+    const futurePx=clamp(this.futureOffsetPx(),0,maxFuturePx),futureSlots=futurePx/spacing;
+    const baseLiveX=g.x1-edgePad-liveGapPx;
+    const rawLastBarX=baseLiveX+this.scrollBars*spacing;
+    const rightEdge=g.x1-edgePad,leftEdge=g.x0+edgePad;
+    const endIndex=clamp(Math.floor(lastIndex+(rightEdge-rawLastBarX)/spacing+1e-9),0,lastIndex);
+    const startIndex=clamp(Math.ceil(lastIndex+(leftEdge-rawLastBarX)/spacing-1e-9),0,endIndex);
+    const lastX=rawLastBarX-(lastIndex-endIndex)*spacing;
+    const dataSlots=Math.max(1,endIndex-startIndex+1);
+    return{startIndex,endIndex,capacity,capacityExact,liveGapPx,shiftPx:liveGapPx,futurePx,futureSlots,dataSlots,lastX,rawLastBarX,maxFuturePx,edgePad};
+  }
+  baseAutoRange(vp){const slice=this.bars.slice(vp.startIndex,vp.endIndex+1);if(!slice.length)return{min:0,max:1};let min=Infinity,max=-Infinity;for(const b of slice){if(b.low<min)min=b.low;if(b.high>max)max=b.high;}const span=Math.max(.01,max-min),pad=span*.08;return{min:min-pad,max:max+pad};}
+  rangeWithPriceZone(base,p,sourceRatio,scaleFactor=1){
+    if(!Number.isFinite(p)||!Number.isFinite(sourceRatio))return base;
+    const baseSpan=Math.max(.01,base.max-base.min),factor=Math.max(1,clamp(Number(scaleFactor)||1,.08,2.5));
+    const span0=baseSpan*factor,mid=(base.min+base.max)/2;
+    let candidate={min:mid-span0/2,max:mid+span0/2};
+    const q0=clamp(sourceRatio,.04,.96),half=this.priceZoneHalf;
+    let zoneTop=clamp(q0-half,.06,.82),zoneBottom=clamp(q0+half,.18,.94);
+    if(zoneBottom-zoneTop<.12){const m=(zoneTop+zoneBottom)/2;zoneTop=clamp(m-.06,.04,.84);zoneBottom=clamp(m+.06,.16,.96);}
+    const ratio=(candidate.max-p)/Math.max(.0001,candidate.max-candidate.min);
+    if(ratio>=zoneTop&&ratio<=zoneBottom)return candidate;
+    const target=ratio<zoneTop?zoneTop:zoneBottom;
+    const needTop=Math.max(0,candidate.max-p)/Math.max(.001,target);
+    const needBottom=Math.max(0,p-candidate.min)/Math.max(.001,1-target);
+    const span=Math.max(span0,needTop,needBottom,.01);
+    return{min:p-(1-target)*span,max:p+target*span};
+  }
+  autoRange(vp){
+    const base=this.baseAutoRange(vp),q=this.autoAnchorRatio,p=this.marketPrice;
+    if(!Number.isFinite(q)||!Number.isFinite(p)||vp.endIndex<this.bars.length-2)return base;
+    // Timeframe switching now respects a PRICE ZONE, not one exact screen pixel.
+    // The destination chart is fitted first; only if current price would leave the
+    // allowed zone do we expand/reposition the range, never crop the visible data.
+    return this.rangeWithPriceZone(base,p,q,this.autoScaleFactor);
+  }
+  range(vp){return this.mode==='manual'&&this.manualRange?this.manualRange:this.autoRange(vp);}
+  lastDataX(vp){return vp.lastX;}
+  xForIndex(i,vp){return this.lastDataX(vp)-(vp.endIndex-i)*this.spacing;}
+  yForPrice(p,r){const g=this.geometry();return g.y0+(r.max-p)/(r.max-r.min)*g.h;}
+  priceForY(y,r){const g=this.geometry();return r.max-((y-g.y0)/g.h)*(r.max-r.min);}
+  snapX(v){return Math.round(v*this.scaleX)/this.scaleX;}
+  snapY(v){return Math.round(v*this.scaleY)/this.scaleY;}
+  snap(v){return this.snapX(v);}
+  deviceLineWidthX(css=1){const px=Math.max(1,Math.round(Math.max(.01,css)*this.scaleX));return px/this.scaleX;}
+  deviceLineWidthY(css=1){const px=Math.max(1,Math.round(Math.max(.01,css)*this.scaleY));return px/this.scaleY;}
+  deviceLineWidth(css=1){return this.deviceLineWidthX(css);}
+  strokeSnapX(v,cssWidth=1){const px=Math.max(1,Math.round(Math.max(.01,cssWidth)*this.scaleX)),offset=px%2?.5:0;return(Math.round(v*this.scaleX-offset)+offset)/this.scaleX;}
+  strokeSnapY(v,cssWidth=1){const px=Math.max(1,Math.round(Math.max(.01,cssWidth)*this.scaleY)),offset=px%2?.5:0;return(Math.round(v*this.scaleY-offset)+offset)/this.scaleY;}
+  strokeSnap(v,cssWidth=1){return this.strokeSnapX(v,cssWidth);}
+  hair(){return this.deviceLineWidthX(1);}
+  bodyPhysicalWidth(){
+    const spacingPx=Math.max(1,this.spacing*this.scaleX),targetPx=Math.max(1,Math.round(spacingPx*.58));
+    // Keep a real physical-pixel gap between neighbouring candles at normal density.
+    return Math.max(1,Math.min(24*Math.max(1,this.scaleX),spacingPx>=3?Math.max(1,Math.floor(spacingPx)-1):targetPx,targetPx));
+  }
+  minSpacing(){
+    const g=this.geometry();
+    // v1.5 keeps the v1.4 zoom range while fixing viewport math.
+    // v2.7 reduces maximum zoom-out capacity by 30% versus v2.6: only 70% of the former maximum visible-bar count is allowed.
+    const targetBars=Math.max(1,Math.floor((this.bars.length-1)*.75));
+    return Math.max(.008,Math.min(.44,g.w/targetBars)/0.70);
+  }
+  maxSpacing(){
+    const g=this.geometry();
+    // v1.5 keeps the v1.4 zoom-in ceiling while fixing viewport math.
+    return Math.max(38,g.w*.6232);
+  }
+  draw(){
+    this.frame=0;if(!this.dirty)return;this.dirty=false;const ctx=this.ctx,c=this.colors(),g=this.geometry(),vp=this.viewport(),r=this.range(vp);
+    ctx.save();ctx.setTransform(this.scaleX,0,0,this.scaleY,0,0);ctx.imageSmoothingEnabled=false;ctx.fillStyle=c.bg;ctx.fillRect(0,0,this.w,this.h);
+    this.drawGrid(ctx,c,g,r,vp);this.drawCandlesSVG(c,g,r,vp);this.drawCurrentPrice(ctx,c,g,r,vp);this.drawAxes(ctx,c,g,r,vp);this.drawCrosshair(ctx,c,g,r,vp);this.drawBorders(ctx,c,g);ctx.restore();this.updateLabels(vp);
+  }
+  drawGrid(ctx,c,g,r,vp){
+    ctx.save();ctx.beginPath();ctx.rect(g.x0,g.y0,g.w,g.h);ctx.clip();ctx.strokeStyle=c.grid;ctx.lineWidth=this.deviceLineWidth(1);ctx.beginPath();
+    for(let i=0;i<=6;i++){const y=this.strokeSnapY(g.y0+g.h*i/6,ctx.lineWidth);ctx.moveTo(g.x0,y);ctx.lineTo(g.x1,y);}const every=Math.max(5,Math.round(96/this.spacing));for(let i=vp.startIndex;i<=vp.endIndex;i++){if((i-vp.startIndex)%every)continue;const x=this.strokeSnapX(this.xForIndex(i,vp),ctx.lineWidth);ctx.moveTo(x,g.y0);ctx.lineTo(x,g.y1);}ctx.stroke();ctx.restore();
+  }
+  drawCandlesSVG(c,g,r,vp){
+    if(!this.svg)return;
+    const spacingPx=this.spacing*this.scaleX;
+    const esc=s=>String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    let html=`<defs><clipPath id="plotClipV22"><rect x="${g.x0}" y="${g.y0}" width="${g.w}" height="${g.h}"/></clipPath></defs><g clip-path="url(#plotClipV22)" shape-rendering="crispEdges">`;
+    if(spacingPx>=2.25){
+      const bodyPx=this.bodyPhysicalWidth(), bodyW=bodyPx/this.scaleX, borderW=Math.max(1,Math.round(this.scaleX))/this.scaleX;
+      let uw='',dw='',ub='',db='';
+      for(let i=vp.startIndex;i<=vp.endIndex;i++){
+        const b=this.bars[i],rawX=this.xForIndex(i,vp);if(!b||rawX<g.x0-bodyW||rawX>g.x1+bodyW)continue;
+        const up=b.close>=b.open;
+        const cxPx=Math.round(rawX*this.scaleX),leftPx=cxPx-Math.floor(bodyPx/2),x=leftPx/this.scaleX,w=bodyPx/this.scaleX,cx=cxPx/this.scaleX;
+        const yo=this.yForPrice(b.open,r),yc=this.yForPrice(b.close,r),yh=this.yForPrice(b.high,r),yl=this.yForPrice(b.low,r);
+        let hiPx=Math.round(Math.min(yh,yl)*this.scaleY),loPx=Math.round(Math.max(yh,yl)*this.scaleY);if(loPx<=hiPx)loPx=hiPx+1;
+        let topPx=Math.round(Math.min(yo,yc)*this.scaleY),botPx=Math.round(Math.max(yo,yc)*this.scaleY);if(botPx<=topPx)botPx=topPx+1;
+        const y=topPx/this.scaleY,h=(botPx-topPx)/this.scaleY,yh1=hiPx/this.scaleY,yl1=loPx/this.scaleY;
+        const wick=`M${cx},${yh1}V${yl1}`;
+        const body=`M${x},${y}h${w}v${h}h-${w}Z`;
+        if(up){uw+=wick;ub+=body;}else{dw+=wick;db+=body;}
+      }
+      if(uw)html+=`<path d="${uw}" fill="none" stroke="${esc(c.wickUp)}" stroke-width="${1/this.scaleX}" vector-effect="non-scaling-stroke"/>`;
+      if(dw)html+=`<path d="${dw}" fill="none" stroke="${esc(c.wickDown)}" stroke-width="${1/this.scaleX}" vector-effect="non-scaling-stroke"/>`;
+      if(ub)html+=`<path d="${ub}" fill="${esc(c.up)}" stroke="${esc(c.borderUp)}" stroke-width="${borderW}" vector-effect="non-scaling-stroke"/>`;
+      if(db)html+=`<path d="${db}" fill="${esc(c.down)}" stroke="${esc(c.borderDown)}" stroke-width="${borderW}" vector-effect="non-scaling-stroke"/>`;
+    }else{
+      const buckets=new Map();
+      for(let i=vp.startIndex;i<=vp.endIndex;i++){
+        const b=this.bars[i],x=this.xForIndex(i,vp);if(!b||x<g.x0-1||x>g.x1+1)continue;
+        const key=Math.round(x*this.scaleX),cur=buckets.get(key);
+        if(!cur)buckets.set(key,{px:key,open:b.open,close:b.close,high:b.high,low:b.low});
+        else{cur.close=b.close;cur.high=Math.max(cur.high,b.high);cur.low=Math.min(cur.low,b.low);}
+      }
+      let up='',down='';
+      const oneX=1/this.scaleX;
+      for(const b of buckets.values()){
+        const isUp=b.close>=b.open,x=b.px/this.scaleX;
+        let hiPx=Math.round(this.yForPrice(b.high,r)*this.scaleY),loPx=Math.round(this.yForPrice(b.low,r)*this.scaleY);if(loPx<hiPx)[hiPx,loPx]=[loPx,hiPx];if(loPx<=hiPx)loPx=hiPx+1;
+        const d=`M${x},${hiPx/this.scaleY}v${(loPx-hiPx)/this.scaleY}`;
+        if(isUp)up+=d;else down+=d;
+      }
+      if(up)html+=`<path d="${up}" fill="none" stroke="${esc(c.up)}" stroke-width="${oneX}"/>`;
+      if(down)html+=`<path d="${down}" fill="none" stroke="${esc(c.down)}" stroke-width="${oneX}"/>`;
+    }
+    html+='</g>';
+    this.svg.innerHTML=html;
+  }
+  drawCandles(ctx,c,g,r,vp){
+    ctx.save();ctx.beginPath();ctx.rect(g.x0,g.y0,g.w,g.h);ctx.clip();ctx.imageSmoothingEnabled=false;
+
+    // Desktop quality rule: when candles still have enough physical separation,
+    // draw each candle on integer backing-store pixels. At dense zoom-out, render
+    // one OHLC micro-candle per physical X pixel instead of overlapping fuzzy bodies.
+    const spacingPx=this.spacing*this.scaleX;
+    if(spacingPx>=2.25){
+      const bodyPx=this.bodyPhysicalWidth(),bodyW=bodyPx/this.scaleX,wickPx=1,wickW=wickPx/this.scaleX,borderPx=1;
+      for(let i=vp.startIndex;i<=vp.endIndex;i++){
+        const b=this.bars[i],rawX=this.xForIndex(i,vp);if(!b||rawX<g.x0-bodyW||rawX>g.x1+bodyW)continue;
+        const up=b.close>=b.open,col=up?c.up:c.down,wick=up?c.wickUp:c.wickDown,border=up?c.borderUp:c.borderDown;
+        const cxPx=Math.round(rawX*this.scaleX),leftPx=cxPx-Math.floor(bodyPx/2),l=leftPx/this.scaleX,rw=bodyPx/this.scaleX;
+        const yo=this.yForPrice(b.open,r),yc=this.yForPrice(b.close,r),yh=this.yForPrice(b.high,r),yl=this.yForPrice(b.low,r);
+        const wickTopPx=Math.round(Math.min(yh,yl)*this.scaleY),wickBottomPx=Math.round(Math.max(yh,yl)*this.scaleY),wickLeft=(cxPx-Math.floor(wickPx/2))/this.scaleX;
+        ctx.fillStyle=wick;ctx.fillRect(wickLeft,wickTopPx/this.scaleY,wickW,Math.max(1,wickBottomPx-wickTopPx)/this.scaleY);
+        let topPx=Math.round(Math.min(yo,yc)*this.scaleY),bottomPx=Math.round(Math.max(yo,yc)*this.scaleY);if(bottomPx<=topPx)bottomPx=topPx+1;
+        const t=topPx/this.scaleY,rh=(bottomPx-topPx)/this.scaleY;
+        ctx.fillStyle=col;ctx.fillRect(l,t,rw,rh);
+        // Body / wick / border remain three independent visual layers.
+        if(bodyPx>=4&&bottomPx-topPx>=3){
+          const bwX=borderPx/this.scaleX,bwY=borderPx/this.scaleY;ctx.fillStyle=border;
+          ctx.fillRect(l,t,rw,bwY);ctx.fillRect(l,t+rh-bwY,rw,bwY);ctx.fillRect(l,t,bwX,rh);ctx.fillRect(l+rw-bwX,t,bwX,rh);
+        }
+      }
+    }else{
+      const buckets=new Map();
+      for(let i=vp.startIndex;i<=vp.endIndex;i++){
+        const b=this.bars[i],x=this.xForIndex(i,vp);if(!b||x<g.x0-1||x>g.x1+1)continue;
+        const key=Math.round(x*this.scaleX),cur=buckets.get(key);
+        if(!cur)buckets.set(key,{px:key,open:b.open,close:b.close,high:b.high,low:b.low});
+        else{cur.close=b.close;cur.high=Math.max(cur.high,b.high);cur.low=Math.min(cur.low,b.low);}
+      }
+      const oneX=1/this.scaleX;
+      for(const b of buckets.values()){
+        const up=b.close>=b.open,col=up?c.up:c.down,x=b.px/this.scaleX;
+        const yo=this.yForPrice(b.open,r),yc=this.yForPrice(b.close,r),yh=this.yForPrice(b.high,r),yl=this.yForPrice(b.low,r);
+        let hiPx=Math.round(Math.min(yh,yl)*this.scaleY),loPx=Math.round(Math.max(yh,yl)*this.scaleY);if(loPx<=hiPx)loPx=hiPx+1;
+        ctx.fillStyle=col;ctx.fillRect(x,hiPx/this.scaleY,oneX,(loPx-hiPx)/this.scaleY);
+        let topPx=Math.round(Math.min(yo,yc)*this.scaleY),botPx=Math.round(Math.max(yo,yc)*this.scaleY);if(botPx<=topPx)botPx=topPx+1;
+        ctx.fillRect(x,topPx/this.scaleY,oneX,(botPx-topPx)/this.scaleY);
+      }
+    }
+    ctx.restore();
+  }
+  drawCurrentPrice(ctx,c,g,r,vp){
+    const last=this.bars.at(-1);if(!last)return;const y=this.yForPrice(last.close,r);if(y<g.y0||y>g.y1)return;ctx.save();ctx.beginPath();ctx.rect(g.x0,g.y0,g.w,g.h);ctx.clip();ctx.strokeStyle=c.price;ctx.lineWidth=this.deviceLineWidth(1);ctx.setLineDash([4,4]);ctx.beginPath();const py=this.strokeSnapY(y,ctx.lineWidth);ctx.moveTo(g.x0,py);ctx.lineTo(g.x1,py);ctx.stroke();ctx.restore();ctx.setLineDash([]);ctx.fillStyle=c.price;ctx.fillRect(g.x1+1,y-10,this.plot.right-2,20);ctx.fillStyle='#fff';ctx.font=`${this.isMobile()?9:10}px Inter,system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fmtPrice(last.close),g.x1+this.plot.right/2,y);
+  }
+  drawAxes(ctx,c,g,r,vp){
+    ctx.fillStyle=c.text;ctx.font=`${this.isMobile()?8:10}px Inter,system-ui,sans-serif`;ctx.textAlign='left';ctx.textBaseline='middle';const step=niceStep((r.max-r.min)/6);for(let p=Math.ceil(r.min/step)*step;p<=r.max;p+=step){const y=this.yForPrice(p,r);if(y>=g.y0&&y<=g.y1)ctx.fillText(fmtPrice(p),g.x1+6,y);}ctx.textAlign='center';ctx.textBaseline='top';const every=Math.max(7,Math.round((this.isMobile()?88:110)/this.spacing));for(let i=vp.startIndex;i<=vp.endIndex;i+=every){const x=this.xForIndex(i,vp);if(x<g.x0||x>g.x1)continue;const d=new Date(this.bars[i].time),secs=(TF_SECONDS[this.tf]||15)<60,label=secs?d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}):d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});ctx.fillText(label,x,g.y1+5);}
+  }
+  drawCrosshair(ctx,c,g,r,vp){
+    if(!this.crosshair)return;const{x,y}=this.crosshair;if(x<g.x0||x>g.x1||y<g.y0||y>g.y1)return;ctx.save();ctx.beginPath();ctx.rect(g.x0,g.y0,g.w,g.h);ctx.clip();ctx.strokeStyle=c.cross;ctx.lineWidth=this.deviceLineWidth(1);ctx.setLineDash([4,4]);ctx.beginPath();const cx=this.strokeSnapX(x,ctx.lineWidth),cy=this.strokeSnapY(y,ctx.lineWidth);ctx.moveTo(cx,g.y0);ctx.lineTo(cx,g.y1);ctx.moveTo(g.x0,cy);ctx.lineTo(g.x1,cy);ctx.stroke();ctx.restore();ctx.setLineDash([]);const price=this.priceForY(y,r);ctx.fillStyle='#243b4f';ctx.fillRect(g.x1+1,y-9,this.plot.right-2,18);ctx.fillStyle='#fff';ctx.font=`${this.isMobile()?9:10}px Inter,system-ui,sans-serif`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(fmtPrice(price),g.x1+this.plot.right/2,y);
+  }
+  drawBorders(ctx,c,g){
+    // Dedicated price-scale and time-scale boundaries. The plot stops exactly at x1/y1.
+    ctx.save();
+    ctx.strokeStyle=c.axis;ctx.lineWidth=this.deviceLineWidth(1);
+    ctx.beginPath();
+    const bx=this.strokeSnapX(g.x1,ctx.lineWidth),by=this.strokeSnapY(g.y1,ctx.lineWidth);
+    ctx.moveTo(bx,g.y0);ctx.lineTo(bx,this.h);
+    ctx.moveTo(g.x0,by);ctx.lineTo(this.w,by);
+    ctx.stroke();
+    // Closed outer chart border aligned to physical pixels for desktop sharpness.
+    const inset=this.deviceLineWidth(1)/2;ctx.lineWidth=this.deviceLineWidth(1);
+    ctx.strokeRect(inset,inset,this.w-inset*2,this.h-inset*2);
+    ctx.restore();
+  }
+  nearestBarIndex(x,vp){const logical=vp.endIndex-(this.lastDataX(vp)-x)/this.spacing;return clamp(Math.round(logical),vp.startIndex,vp.endIndex);}
+  updateLabels(vp){const idx=this.crosshair?this.nearestBarIndex(this.crosshair.x,vp):vp.endIndex,b=this.bars[idx]||this.bars.at(-1);document.querySelector('#symbolLabel').textContent=`XAUUSD · ${this.tf}`;document.querySelector('#ohlcLabel').textContent=b?`O ${fmtPrice(b.open)}  H ${fmtPrice(b.high)}  L ${fmtPrice(b.low)}  C ${fmtPrice(b.close)}`:'O — H — L — C —';document.querySelector('#modeLabel').textContent=this.mode==='auto'?'AUTO · PROTECTED':'FREE · MANUAL';document.querySelector('#autoBtn').classList.toggle('active',this.mode==='auto');}
+  captureViewState(){return{spacing:this.spacing,scrollBars:this.scrollBars,mode:this.mode,manualRange:this.manualRange?{...this.manualRange}:null,autoAnchorRatio:Number.isFinite(this.autoAnchorRatio)?this.autoAnchorRatio:null,autoScaleFactor:Number.isFinite(this.autoScaleFactor)?this.autoScaleFactor:null};}
+  visibleTimeWindow(){
+    const g=this.geometry(),vp=this.viewport(),step=tfMs(this.tf),endBar=this.bars[vp.endIndex];if(!endBar)return null;
+    const timeAtX=x=>endBar.time+((x-vp.lastX)/Math.max(.0001,this.spacing))*step;
+    const current=this.marketPrice,rr=this.range(vp),py=this.yForPrice(current,rr),priceAnchorRatio=(py>=g.y0&&py<=g.y1)?(py-g.y0)/Math.max(1,g.h):null;
+    const base=this.baseAutoRange(vp),baseSpan=Math.max(.0001,base.max-base.min),rangeSpan=Math.max(.0001,rr.max-rr.min);
+    return{left:timeAtX(g.x0),right:timeAtX(g.x1),center:timeAtX((g.x0+g.x1)/2),futurePx:vp.futurePx,spacing:this.spacing,lastDataX:vp.lastX,plotWidth:g.w,isLive:vp.endIndex>=this.bars.length-2&&this.scrollBars<=.0001,mode:this.mode,manualRange:this.manualRange?{...this.manualRange}:null,rangeSpan,verticalScaleFactor:rangeSpan/baseSpan,priceAnchorRatio,currentPrice:current};
+  }
+  syncBarsToMarketPrice(){
+    const last=this.bars.at(-1);if(!last||!Number.isFinite(this.marketPrice))return 0;
+    const delta=this.marketPrice-last.close;if(Math.abs(delta)<1e-12)return 0;
+    for(const b of this.bars){b.open+=delta;b.high+=delta;b.low+=delta;b.close+=delta;}
+    return delta;
+  }
+  applySwitchPriceAnchor(win){
+    const q=Number(win?.priceAnchorRatio);if(!Number.isFinite(q))return;
+    const vp=this.viewport();if(vp.endIndex<this.bars.length-2)return;
+    const p=this.marketPrice,base=this.baseAutoRange(vp),factor=Math.max(1,clamp(Number(win?.verticalScaleFactor)||1,.08,2.5));
+    if(this.mode==='manual'){
+      // Manual mode keeps the user's broad zoom feel, but a timeframe switch must not
+      // sacrifice the destination chart merely to pin current price to one exact pixel.
+      this.manualRange=this.rangeWithPriceZone(base,p,q,factor);this.autoAnchorRatio=null;this.autoScaleFactor=null;
+    }else{this.autoAnchorRatio=clamp(q,.04,.96);this.autoScaleFactor=1;}
+  }
+  saveTimeframeState(){this.frames.set(this.tf,this.bars);this.viewStates.set(this.tf,this.captureViewState());}
+  restoreTimeframeState(state){
+    this.spacing=clamp(Number(state?.spacing)||this.defaultSpacing,this.minSpacing(),this.maxSpacing());this.scrollBars=Number.isFinite(state?.scrollBars)?state.scrollBars:0;this.mode=state?.mode==='manual'?'manual':'auto';this.manualRange=state?.manualRange?{...state.manualRange}:null;this.autoAnchorRatio=Number.isFinite(Number(state?.autoAnchorRatio))?Number(state.autoAnchorRatio):null;this.autoScaleFactor=Number.isFinite(Number(state?.autoScaleFactor))?Number(state.autoScaleFactor):null;const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);this.crosshair=null;
+    // Refresh must restore the user's exact saved vertical view. Only the existing
+    // anti-blank guard is allowed to intervene if the entire visible dataset would
+    // otherwise be completely outside the screen.
+    this.ensureManualRangeVisible();this.invalidate();
+  }
+  initializeTimeframeFromWindow(win){
+    if(!win){this.home();return;}
+    const g=this.geometry(),step=tfMs(this.tf),lastIndex=this.bars.length-1,lastTime=this.bars[lastIndex]?.time??Date.now();
+    // v2.2 timeframe rule: NEVER derive candle spacing from the source timeframe's
+    // time-span. Doing that repeatedly (1s -> 5s -> 1m -> 5m -> 1h) makes the chart
+    // progressively appear to zoom out/in. Preserve the visual candle zoom directly.
+    this.spacing=clamp(Number(win.spacing)||this.defaultSpacing,this.minSpacing(),this.maxSpacing());
+
+    // Keep the same market-time anchor near the centre of the screen while preserving
+    // the same candle size. This changes how much clock-time is visible (as expected
+    // between 1s and 1h) without changing the user's zoom feel.
+    const centerX=(g.x0+g.x1)/2;
+    const desiredLogical=lastIndex-(lastTime-win.center)/step;
+    // Recalculate with a provisional viewport; future whitespace is preserved
+    // in physical pixels so it cannot grow/shrink as timeframes change.
+    this.scrollBars=0;
+    let baseVp=this.viewport();
+    const desiredEnd=desiredLogical+(baseVp.lastX-centerX)/Math.max(.0001,this.spacing);
+    this.scrollBars=lastIndex-desiredEnd;
+    if(win.futurePx>0)this.scrollBars=-win.futurePx/Math.max(.0001,this.spacing);
+    const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);
+
+    this.mode=win.mode==='manual'?'manual':'auto';this.autoAnchorRatio=null;this.autoScaleFactor=null;
+    if(this.mode==='manual'){
+      // Carry the VISUAL vertical scale, not the absolute price-span from another
+      // timeframe. Absolute spans make low-timeframe candles flatten after visiting
+      // higher timeframes. Relative scale keeps candle height consistent.
+      const vpNow=this.viewport(),base=this.baseAutoRange(vpNow),baseSpan=Math.max(.0001,base.max-base.min),factor=Math.max(1,clamp(Number(win.verticalScaleFactor)||1,.08,2.5));
+      const q=Number(win.priceAnchorRatio),p=this.marketPrice,span=baseSpan*factor,mid=(base.min+base.max)/2,candidate={min:mid-span/2,max:mid+span/2};
+      this.manualRange=(Number.isFinite(q)&&win.isLive)?this.rangeWithPriceZone(candidate,p,q,1):candidate;
+    }else this.manualRange=null;
+    this.crosshair=null;this.ensureManualRangeVisible();this.invalidate();
+  }
+  setTimeframe(tf){
+    if(!TF_SECONDS[tf]||tf===this.tf)return;
+    const sourceWindow=this.visibleTimeWindow();this.saveTimeframeState();this.tf=tf;
+    if(!this.frames.has(tf))this.frames.set(tf,generateBars(tf));this.bars=this.frames.get(tf);this.syncBarsToMarketPrice();
+    // v2.6 carries the CURRENT visual state into every timeframe switch.
+    // We do not restore stale destination-timeframe zoom/range values, because cycling
+    // through saved absolute ranges was what caused progressive shrink/flat candles.
+    this.initializeTimeframeFromWindow(sourceWindow);
+    if(sourceWindow?.isLive){this.scrollBars=sourceWindow.futurePx>0?-sourceWindow.futurePx/Math.max(.0001,this.spacing):0;const liveLim=this.limits();this.scrollBars=clamp(this.scrollBars,liveLim.min,0);}
+    this.applySwitchPriceAnchor(sourceWindow);this.stabilizeVerticalAfterTimeframeSwitch();this.invalidate();this.markViewChanged();
+  }
+  home(){this.spacing=this.defaultSpacing;this.scrollBars=0;this.mode='auto';this.manualRange=null;this.autoAnchorRatio=null;this.autoScaleFactor=null;this.crosshair=null;this.invalidate();this.markViewChanged();}
+  goLive(){this.scrollBars=0;this.invalidate();this.markViewChanged();}
+  releaseAuto(){if(this.mode==='manual')return;this.manualRange=this.autoRange(this.viewport());this.mode='manual';this.invalidate();this.markViewChanged();}
+  setAuto(){this.mode='auto';this.manualRange=null;this.autoAnchorRatio=null;this.autoScaleFactor=null;this.invalidate();this.markViewChanged();}
+  toggleAuto(){this.mode==='auto'?this.releaseAuto():this.setAuto();}
+  limits(){
+    const vp=this.viewport(),spacing=Math.max(this.spacing,.0001);
+    const maxFutureBars=vp.maxFuturePx/spacing;
+    // History may reach the oldest bar; viewport() still guarantees at least one real bar.
+    const maxPast=Math.max(0,this.bars.length-1);
+    return{min:-maxFutureBars,max:maxPast};
+  }
+  preserveFuturePixels(oldSpacing,newSpacing,oldScroll){
+    if(oldScroll>=0)return oldScroll;
+    const px=Math.max(0,-oldScroll)*Math.max(oldSpacing,.0001);
+    return -px/Math.max(newSpacing,.0001);
+  }
+  visiblePriceBounds(vp=this.viewport()){
+    const slice=this.bars.slice(vp.startIndex,vp.endIndex+1);if(!slice.length)return null;
+    let lo=Infinity,hi=-Infinity;for(const b of slice){if(b.low<lo)lo=b.low;if(b.high>hi)hi=b.high;}
+    return{lo,hi};
+  }
+  constrainManualRange(candidate,vp=this.viewport()){
+    const bounds=this.visiblePriceBounds(vp);if(!bounds)return candidate;
+    const span=Math.max(.0001,candidate.max-candidate.min),dataSpan=Math.max(.0001,bounds.hi-bounds.lo);
+    // Free vertical panning is allowed, but never let every visible candle leave the screen.
+    // Keep only a small overlap guard so the chart still feels genuinely free.
+    const guard=Math.max(dataSpan*.02,Math.min(span*.04,dataSpan*.12));
+    if(candidate.min>bounds.hi-guard){const min=bounds.hi-guard;return{min,max:min+span};}
+    if(candidate.max<bounds.lo+guard){const max=bounds.lo+guard;return{min:max-span,max};}
+    return candidate;
+  }
+  ensureManualRangeVisible(vp=this.viewport()){
+    if(this.mode!=='manual'||!this.manualRange)return;
+    this.manualRange=this.constrainManualRange(this.manualRange,vp);
+  }
+  stabilizeVerticalAfterTimeframeSwitch(){
+    if(this.mode!=='manual'||!this.manualRange)return;
+    const vp=this.viewport(),base=this.baseAutoRange(vp);
+    // On timeframe changes, never hide the destination chart just to preserve an
+    // old Y position. Expand (never shrink) the manual window enough to contain the
+    // destination auto-fit range. Ordinary manual panning/zooming is unchanged.
+    if(this.manualRange.min>base.min||this.manualRange.max<base.max){
+      const min=Math.min(this.manualRange.min,base.min),max=Math.max(this.manualRange.max,base.max);this.manualRange={min,max};
+    }
+  }
+  zoomHorizontal(factor,anchorX){
+    const old=this.spacing,newSpacing=clamp(old*factor,this.minSpacing(),this.maxSpacing());
+    if(Math.abs(newSpacing-old)<.00001)return;
+    const vp=this.viewport(),before=this.nearestBarIndex(anchorX,vp),oldScroll=this.scrollBars;
+    this.spacing=newSpacing;
+    if(oldScroll<0){
+      // Preserve the visual future-space distance in pixels while zooming.
+      this.scrollBars=this.preserveFuturePixels(old,newSpacing,oldScroll);
+    }else{
+      const vp2=this.viewport(),after=this.nearestBarIndex(anchorX,vp2);
+      this.scrollBars=oldScroll+(after-before);
+    }
+    const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);
+    this.ensureManualRangeVisible();this.invalidate();
+  }
+  scaleVertical(factor,anchorY=null,startRange=null){
+    this.releaseAuto();const base=startRange||this.manualRange;if(!base)return;const span=Math.max(.0001,base.max-base.min),newSpan=clamp(span/factor,span*.08,span*12),g=this.geometry(),aY=anchorY==null?(g.y0+g.y1)/2:clamp(anchorY,g.y0,g.y1),anchorPrice=this.priceForY(aY,base),ratio=(aY-g.y0)/Math.max(1,g.h);this.manualRange={max:anchorPrice+newSpan*ratio,min:anchorPrice-newSpan*(1-ratio)};this.invalidate();this.markViewChanged();
+  }
+  fitAllHistory(){
+    const g=this.geometry(),usable=Math.max(1,g.w),target=usable/Math.max(1,this.bars.length);
+    this.spacing=clamp(target,this.minSpacing(),this.maxSpacing());this.scrollBars=0;this.mode='auto';this.manualRange=null;this.invalidate();
+  }
+  bind(){
+    const c=this.canvas;
+    c.addEventListener('wheel',e=>{e.preventDefault();const p=this.localPoint(e);if(p.x>=this.geometry().x1)this.scaleVertical(e.deltaY<0?1.10:.91,p.y);else this.zoomHorizontal(e.deltaY<0?1.11:.90,p.x);this.markViewChanged();},{passive:false});
+    c.addEventListener('pointerdown',e=>this.onPointerDown(e));c.addEventListener('pointermove',e=>this.onPointerMove(e));c.addEventListener('pointerup',e=>this.onPointerUp(e));c.addEventListener('pointercancel',e=>this.onPointerUp(e));c.addEventListener('pointerleave',()=>{if(!this.gesture){this.crosshair=null;this.invalidate();}});
+    c.addEventListener('dblclick',e=>{const p=this.localPoint(e),g=this.geometry();if(p.x>=g.x1){this.setAuto();return;}if(p.y>=g.y1){this.spacing=this.defaultSpacing;this.scrollBars=0;this.invalidate();return;}this.home();});
+    window.addEventListener('keydown',e=>{if(e.key==='Home')this.home();else if(e.key==='+'||e.key==='=')this.zoomHorizontal(1.12,this.geometry().x1/2);else if(e.key==='-')this.zoomHorizontal(.89,this.geometry().x1/2);else if(e.key==='ArrowLeft'){this.scrollBars+=2;const l=this.limits();this.scrollBars=clamp(this.scrollBars,l.min,l.max);this.invalidate();}else if(e.key==='ArrowRight'){this.scrollBars-=2;const l=this.limits();this.scrollBars=clamp(this.scrollBars,l.min,l.max);this.invalidate();}else if(e.key==='0'){this.fitAllHistory();}});
+    window.addEventListener('keyup',e=>{if(['Home','+','=','-','ArrowLeft','ArrowRight','0'].includes(e.key))this.markViewChanged();});
+  }
+  localPoint(e){const r=this.canvas.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+  pinchState(){const pts=[...this.pointerMap.values()];if(pts.length<2)return null;const a=pts[0],b=pts[1],dx=a.x-b.x,dy=a.y-b.y,dist=Math.max(8,Math.hypot(dx,dy)),mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};return{dx:Math.abs(dx),dy:Math.abs(dy),dist,mid};}
+  onPointerDown(e){
+    this.canvas.setPointerCapture?.(e.pointerId);const p=this.localPoint(e),g=this.geometry();this.pointerMap.set(e.pointerId,p);
+    if(this.pointerMap.size===2){const q=this.pinchState();this.gesture={type:'pinch',dist:q.dist,mid:q.mid,spacing:this.spacing,range:{...(this.mode==='manual'&&this.manualRange?this.manualRange:this.autoRange(this.viewport()))},scrollBars:this.scrollBars,futurePx:this.futureOffsetPx()};return;}
+    if(p.x>=g.x1){this.releaseAuto();this.gesture={type:'priceScale',start:p,range:{...this.manualRange}};return;}
+    if(p.y>=g.y1){this.gesture={type:'timeScale',start:p,spacing:this.spacing,scrollBars:this.scrollBars,futurePx:this.futureOffsetPx()};return;}
+    this.gesture={type:'pan',start:p,scrollBars:this.scrollBars,range:{...(this.mode==='manual'&&this.manualRange?this.manualRange:this.autoRange(this.viewport()))},modeAtStart:this.mode,moved:false};
+  }
+  onPointerMove(e){
+    const p=this.localPoint(e);this.crosshair=p;this.pointerMap.set(e.pointerId,p);
+    if(this.pointerMap.size===2){
+      const q=this.pinchState();
+      if(this.gesture?.type!=='pinch'){
+        this.gesture={type:'pinch',dist:q.dist,mid:q.mid,spacing:this.spacing,range:{...(this.mode==='manual'&&this.manualRange?this.manualRange:this.autoRange(this.viewport()))},scrollBars:this.scrollBars,futurePx:this.futureOffsetPx()};
+      }
+      // v1.7 pinch rule: finger orientation never changes the zoom axis.
+      // Horizontal, vertical, or diagonal two-finger pinches all control TIME/HORIZONTAL zoom only.
+      // This mirrors the mobile behavior the user expects from TradingView: pinch distance
+      // changes candle spacing left-to-right, while vertical price scaling stays on the right axis.
+      const factor=clamp(q.dist/this.gesture.dist,.12,8);
+      this.spacing=clamp(this.gesture.spacing*factor,this.minSpacing(),this.maxSpacing());
+      this.scrollBars=this.gesture.scrollBars<0?-this.gesture.futurePx/Math.max(this.spacing,.0001):this.gesture.scrollBars;
+      const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);
+      this.ensureManualRangeVisible();
+      this.invalidate();return;
+    }
+    if(!this.gesture){this.invalidate();return;}
+    if(this.gesture.type==='priceScale'){const dy=p.y-this.gesture.start.y,base=this.gesture.range,center=(base.min+base.max)/2,span=(base.max-base.min)*Math.exp(dy/180);this.manualRange={min:center-span/2,max:center+span/2};this.invalidate();return;}
+    if(this.gesture.type==='timeScale'){const dx=p.x-this.gesture.start.x;this.spacing=clamp(this.gesture.spacing*Math.exp(dx/190),this.minSpacing(),this.maxSpacing());this.scrollBars=this.gesture.scrollBars<0?-this.gesture.futurePx/Math.max(this.spacing,.0001):this.gesture.scrollBars;const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);this.ensureManualRangeVisible();this.invalidate();return;}
+    if(this.gesture.type==='pan'){
+      const dx=p.x-this.gesture.start.x,dy=p.y-this.gesture.start.y;this.gesture.moved=this.gesture.moved||Math.hypot(dx,dy)>3;
+
+      // Free chart-body navigation: one drag can move through time (X) and price (Y).
+      // Horizontal movement keeps the v1.5 anti-disappearance viewport protection.
+      this.scrollBars=this.gesture.scrollBars+dx/Math.max(.0001,this.spacing);
+      const lim=this.limits();this.scrollBars=clamp(this.scrollBars,lim.min,lim.max);
+
+      // A deliberate vertical component releases AUTO into MANUAL and pans the price range.
+      // This restores the free up/down movement without reintroducing the blank-chart bug.
+      if(Math.abs(dy)>3&&this.gesture.range){
+        if(this.mode!=='manual')this.mode='manual';
+        const span=Math.max(.0001,this.gesture.range.max-this.gesture.range.min);
+        const shift=(dy/Math.max(1,this.geometry().h))*span;
+        const candidate={min:this.gesture.range.min+shift,max:this.gesture.range.max+shift};
+        this.manualRange=this.constrainManualRange(candidate,this.viewport());
+      }else{
+        this.ensureManualRangeVisible(this.viewport());
+      }
+      this.invalidate();
+    }
+  }
+  onPointerUp(e){this.pointerMap.delete(e.pointerId);if(this.pointerMap.size<2)this.gesture=null;this.markViewChanged();this.invalidate();}
+  startLive(){setInterval(()=>{const now=Date.now(),step=tfMs(this.tf),bucket=Math.floor(now/step)*step;let last=this.bars.at(-1);if(!last)return;if(bucket>last.time){const open=this.marketPrice;this.bars.push({time:bucket,open,high:open,low:open,close:open});if(this.bars.length>20000)this.bars.shift();last=this.bars.at(-1);}const n=(Math.random()-.5)*.08;this.marketPrice+=n;last.close=this.marketPrice;last.high=Math.max(last.high,last.close);last.low=Math.min(last.low,last.close);this.frames.set(this.tf,this.bars);if(this.scrollBars<=0)this.invalidate();},350);}
+}
+const canvas=document.querySelector('#chart'),engine=new NativeChart(canvas);window.__tradeAvataNativeChart=engine;const periods=document.querySelector('#periods');
+for(const tf of PERIODS){const b=document.createElement('button');b.type='button';b.textContent=tf;b.className=tf===engine.tf?'active':'';b.addEventListener('click',()=>{engine.setTimeframe(tf);[...periods.children].forEach(x=>x.classList.toggle('active',x===b));});periods.appendChild(b);}
+document.querySelector('#homeBtn').addEventListener('click',()=>engine.home());document.querySelector('#autoBtn').addEventListener('click',()=>engine.toggleAuto());document.querySelector('#liveBtn').addEventListener('click',()=>engine.goLive());document.querySelector('#themeBtn').addEventListener('click',()=>{engine.theme=engine.theme==='dark'?'light':'dark';document.body.classList.toggle('light',engine.theme==='light');engine.invalidate();engine.persistNow();});
+</script>
+</body>
+</html>
