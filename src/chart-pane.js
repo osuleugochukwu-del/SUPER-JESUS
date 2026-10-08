@@ -21,8 +21,10 @@ export class ChartPane{
     this.series=null;this.indicatorSeries=[];this.oscillatorPanes=[];this.chart=null;this.drawingLayer=null;
 
     /*
-     * Native Chart owns the real price-scale range.
-     * ChartPane only keeps UI state and FREE/manual movement state.
+     * Full Native owns the real movement and price range.
+     *
+     * ChartPane only reflects the engine state in the UI.
+     * It must never create a second competing drag controller.
      */
     this.manualMode=false;
     this.manualRange=null;
@@ -33,6 +35,8 @@ export class ChartPane{
     this.replaySelecting=false;
     this.replaySelectorLogical=null;
     this.replayFollow=true;
+    this.replayTouchPress=null;
+    this.replayLastTouchTap=null;
 
     this.lastCrosshair=null;
     this.mounted=false;
@@ -182,10 +186,12 @@ export class ChartPane{
         borderVisible:false,
         autoScale:true,
         mode:this.priceScaleModeValue(),
+
         scaleMargins:{
           top:cs.topMargin,
           bottom:cs.bottomMargin
         },
+
         minimumWidth:window.innerWidth<=780?42:46,
         tickMarkDensity:2.5
       },
@@ -240,17 +246,20 @@ export class ChartPane{
           time:true,
           price:true
         },
+
         axisDoubleClickReset:{
           time:true,
           price:true
         },
+
         mouseWheel:true,
         pinch:true
       },
 
       /*
-       * Direct chart navigation.
-       * Hold -> drag -> release -> STOP.
+       * Smooth direct movement is NOT kinetic movement.
+       *
+       * Hold -> move -> release -> STOP.
        */
       kineticScroll:{
         mouse:false,
@@ -295,20 +304,29 @@ export class ChartPane{
 
   /*
    * ============================================================
-   * PRICE SCALE / GESTURE BRIDGE
+   * NATIVE GESTURE BRIDGE
    * ============================================================
    *
-   * Native Chart performs actual right-axis scaling.
+   * File 1 now owns:
    *
-   * ChartPane does not calculate a second right-axis price range.
-   * This prevents the two price systems from fighting each other.
+   * - horizontal dragging
+   * - manual X/Y dragging
+   * - price-axis scaling
+   * - pointer precision
+   * - STOP-on-release
+   *
+   * This bridge therefore MUST NOT intercept chart-body movement.
+   *
+   * Its only job is to keep the AUTO / MANUAL user interface
+   * synchronized when Native releases the price axis into manual mode.
    */
   installGestureBridge(){
     const host=this.chartHost;
 
     host.addEventListener('pointerdown',e=>{
       /*
-       * Replay selection must not block ordinary Native panning.
+       * Replay can still navigate through Native.
+       * Returning here does not block or cancel the event.
        */
       if(this.replaySelecting)return;
 
@@ -319,10 +337,11 @@ export class ChartPane{
       const axisWidth=window.innerWidth<=780?42:46;
 
       /*
-       * Right price axis.
+       * Right price axis:
        *
        * Observe only.
-       * NativeChart owns the actual scale gesture.
+       *
+       * There is deliberately no second scale calculation here.
        */
       if(x>r.width-axisWidth-2){
         this.scaleGesture={
@@ -330,94 +349,67 @@ export class ChartPane{
           y:e.clientY,
           moved:false
         };
-        return;
-      }
-
-      /*
-       * FREE/MANUAL vertical chart-body movement.
-       */
-      if(this.manualMode){
-        this.verticalPan={
-          x:e.clientX,
-          y:e.clientY,
-          started:false,
-          range:this.manualRange
-            ?{...this.manualRange}
-            :this.rangeFromCoordinates()
-        };
       }
     },true);
 
     host.addEventListener('pointermove',e=>{
       /*
-       * Observe the Native right-axis drag without blocking it.
+       * Nothing in ChartPane handles chart-body dragging anymore.
+       *
+       * Native receives every body pointermove directly.
        */
-      if(this.scaleGesture){
-        const moved=Math.hypot(
-          e.clientX-this.scaleGesture.x,
-          e.clientY-this.scaleGesture.y
-        );
+      if(!this.scaleGesture)return;
 
-        if(moved>4&&!this.scaleGesture.moved){
-          this.scaleGesture.moved=true;
-          this.manualMode=true;
-          this.updateModeChip();
-        }
+      const moved=Math.hypot(
+        e.clientX-this.scaleGesture.x,
+        e.clientY-this.scaleGesture.y
+      );
 
-        return;
-      }
+      if(moved>1&&!this.scaleGesture.moved){
+        this.scaleGesture.moved=true;
 
-      if(!this.verticalPan||!this.manualMode)return;
-
-      const dx=e.clientX-this.verticalPan.x;
-      const dy=e.clientY-this.verticalPan.y;
-
-      if(!this.verticalPan.started){
         /*
-         * Horizontal movements stay under Native chart control.
+         * Native will turn its main scale manual during this same
+         * interaction. Reflect that immediately in the UI.
          */
-        if(Math.abs(dy)<6||Math.abs(dy)<Math.abs(dx)*1.15)return;
-
-        this.verticalPan.started=true;
-        this.manualRange=this.verticalPan.range||this.rangeFromCoordinates();
+        this.manualMode=true;
+        this.updateModeChip();
       }
 
-      if(!this.manualRange)return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const span=this.verticalPan.range.max-this.verticalPan.range.min;
-      const h=Math.max(1,host.clientHeight);
-      const shift=(dy/h)*span;
-
-      this.manualRange={
-        min:this.verticalPan.range.min+shift,
-        max:this.verticalPan.range.max+shift
-      };
-
-      this.applyManualProvider();
-      this.renderOverlays();
+      /*
+       * No preventDefault.
+       * No stopPropagation.
+       */
     },true);
 
     const end=()=>{
-      if(this.scaleGesture){
-        if(this.scaleGesture.moved){
-          this.manualMode=true;
+      const changed=!!this.scaleGesture?.moved;
 
-          /*
-           * Read the resulting Native range for FREE-mode continuation.
-           * Do NOT apply another provider here.
-           */
-          this.manualRange=this.rangeFromCoordinates();
-
-          this.updateModeChip();
-        }
-
-        this.scaleGesture=null;
-      }
-
+      this.scaleGesture=null;
       this.verticalPan=null;
+
+      if(changed){
+        /*
+         * Read Native's final range after the target handler has finished.
+         */
+        setTimeout(()=>{
+          try{
+            const nativeManual=
+              this.chart?.isMainPriceManual?.();
+
+            this.manualMode=
+              typeof nativeManual==='boolean'
+                ?nativeManual
+                :true;
+
+            this.manualRange=
+              this.chart?.getMainPriceRange?.()||
+              this.rangeFromCoordinates();
+
+            this.updateModeChip();
+          }catch{}
+        },0);
+      }
 
       setTimeout(()=>this.captureOscillatorPaneHeights(),0);
     };
@@ -426,9 +418,6 @@ export class ChartPane{
     host.addEventListener('pointercancel',end,true);
 
     host.addEventListener('dblclick',e=>{
-      /*
-       * Replay double-click is handled by ReplaySelectorBridge.
-       */
       if(this.replaySelecting)return;
 
       const r=host.getBoundingClientRect();
@@ -436,7 +425,7 @@ export class ChartPane{
       const axisWidth=window.innerWidth<=780?42:46;
 
       /*
-       * Right price-axis double-click = AUTO.
+       * Price-axis double click = AUTO.
        */
       if(x>r.width-axisWidth-2){
         this.setAutoMode(false);
@@ -451,7 +440,7 @@ export class ChartPane{
       }
 
       /*
-       * Empty-chart double-click intentionally does nothing.
+       * Normal empty-chart double click intentionally does nothing.
        */
     });
   }
@@ -572,76 +561,43 @@ export class ChartPane{
    * REPLAY SELECTOR
    * ============================================================
    *
-   * Single click + hold + drag = normal chart navigation.
-   * Release = STOP.
-   * Repeat drag as many times as required.
-   * Double-click = confirm Replay start candle.
+   * Desktop:
+   *
+   * press + drag = normal chart movement
+   * release = stop
+   * repeat as required
+   * DOUBLE CLICK = choose Replay start
+   *
+   * Phone/tablet:
+   *
+   * touch + drag = normal chart movement
+   * DOUBLE TAP = choose Replay start
    */
   installReplaySelectorBridge(){
     const host=this.chartHost;
     const line=this.root.querySelector('.replay-selector-line');
 
-    host.addEventListener('pointermove',e=>{
-      if(!this.replaySelecting)return;
-
-      const r=host.getBoundingClientRect();
-      const axisWidth=window.innerWidth<=780?42:46;
-
-      const maxX=Math.max(
-        0,
-        r.width-axisWidth-1
-      );
-
-      const x=clamp(
-        e.clientX-r.left,
-        0,
-        maxX
-      );
-
-      const logical=this.logicalAtCoordinate(x);
-
-      this.replaySelectorLogical=logical;
-      line.style.left=`${Math.round(x)}px`;
-
-      /*
-       * No preventDefault.
-       * No stopPropagation.
-       * Native chart remains draggable underneath Replay.
-       */
-    },true);
-
     /*
-     * There is intentionally NO Replay pointerdown selection.
-     *
-     * A single press is navigation.
-     * Only double-click confirms Replay start.
+     * The selector itself must never become an invisible wall over
+     * the chart.
      */
-    host.addEventListener('dblclick',e=>{
-      if(!this.replaySelecting)return;
+    line.style.pointerEvents='none';
 
+    const selectorPoint=(clientX,clientY)=>{
       const r=host.getBoundingClientRect();
 
-      const x=e.clientX-r.left;
-      const y=e.clientY-r.top;
+      const x=clientX-r.left;
+      const y=clientY-r.top;
       const axisWidth=window.innerWidth<=780?42:46;
 
-      /*
-       * Do not choose Replay from the right price scale.
-       */
-      if(x>r.width-axisWidth-2)return;
+      if(x>r.width-axisWidth-2)return false;
 
-      /*
-       * Do not choose Replay from the bottom time scale.
-       */
       if(
         y<0||
         y>Math.max(0,r.height-24)
       ){
-        return;
+        return false;
       }
-
-      e.preventDefault();
-      e.stopPropagation();
 
       const logical=this.logicalAtCoordinate(
         clamp(
@@ -668,22 +624,184 @@ export class ChartPane{
         this,
         idx
       );
+
+      return true;
+    };
+
+    host.addEventListener('pointerdown',e=>{
+      if(
+        !this.replaySelecting||
+        e.pointerType!=='touch'
+      ){
+        return;
+      }
+
+      this.replayTouchPress={
+        id:e.pointerId,
+        x:e.clientX,
+        y:e.clientY,
+        time:Date.now(),
+        moved:false
+      };
+
+      /*
+       * No preventDefault.
+       * Native still receives this touch and can pan.
+       */
+    },true);
+
+    host.addEventListener('pointermove',e=>{
+      if(!this.replaySelecting)return;
+
+      if(
+        this.replayTouchPress&&
+        this.replayTouchPress.id===e.pointerId
+      ){
+        if(
+          Math.hypot(
+            e.clientX-this.replayTouchPress.x,
+            e.clientY-this.replayTouchPress.y
+          )>9
+        ){
+          this.replayTouchPress.moved=true;
+        }
+      }
+
+      const r=host.getBoundingClientRect();
+      const axisWidth=window.innerWidth<=780?42:46;
+
+      const maxX=Math.max(
+        0,
+        r.width-axisWidth-1
+      );
+
+      const x=clamp(
+        e.clientX-r.left,
+        0,
+        maxX
+      );
+
+      const logical=this.logicalAtCoordinate(x);
+
+      this.replaySelectorLogical=logical;
+      line.style.left=`${Math.round(x)}px`;
+
+      /*
+       * Do not consume this pointer movement.
+       * Native remains fully draggable.
+       */
+    },true);
+
+    host.addEventListener('pointercancel',e=>{
+      if(
+        this.replayTouchPress?.id===
+        e.pointerId
+      ){
+        this.replayTouchPress=null;
+      }
+    },true);
+
+    host.addEventListener('pointerup',e=>{
+      if(
+        !this.replaySelecting||
+        e.pointerType!=='touch'||
+        !this.replayTouchPress||
+        this.replayTouchPress.id!==e.pointerId
+      ){
+        return;
+      }
+
+      const press=this.replayTouchPress;
+      this.replayTouchPress=null;
+
+      const now=Date.now();
+
+      /*
+       * A drag must never count as a tap.
+       */
+      if(
+        press.moved||
+        now-press.time>450
+      ){
+        this.replayLastTouchTap=null;
+        return;
+      }
+
+      const previous=this.replayLastTouchTap;
+
+      if(
+        previous&&
+        now-previous.time<=450&&
+        Math.hypot(
+          e.clientX-previous.x,
+          e.clientY-previous.y
+        )<=24
+      ){
+        this.replayLastTouchTap=null;
+
+        if(
+          selectorPoint(
+            e.clientX,
+            e.clientY
+          )
+        ){
+          e.preventDefault();
+          e.stopPropagation();
+        }
+
+        return;
+      }
+
+      /*
+       * First tap only arms the second tap.
+       * It does NOT select Replay.
+       */
+      this.replayLastTouchTap={
+        x:e.clientX,
+        y:e.clientY,
+        time:now
+      };
+    },true);
+
+    /*
+     * Desktop confirmation.
+     */
+    host.addEventListener('dblclick',e=>{
+      if(!this.replaySelecting)return;
+
+      if(
+        selectorPoint(
+          e.clientX,
+          e.clientY
+        )
+      ){
+        e.preventDefault();
+        e.stopPropagation();
+      }
     },true);
   }
 
   enterReplaySelection(){
     this.replaySelecting=true;
     this.replaySelectorLogical=null;
+    this.replayTouchPress=null;
+    this.replayLastTouchTap=null;
 
     this.root.classList.add('replay-selecting');
 
-    this.root
-      .querySelector('.replay-selector-line')
-      .style.display='block';
+    const line=
+      this.root.querySelector(
+        '.replay-selector-line'
+      );
+
+    line.style.pointerEvents='none';
+    line.style.display='block';
   }
 
   exitReplaySelection(){
     this.replaySelecting=false;
+    this.replayTouchPress=null;
+    this.replayLastTouchTap=null;
 
     this.root.classList.remove('replay-selecting');
 
@@ -713,12 +831,15 @@ export class ChartPane{
 
   enterFreeMode(){
     this.manualMode=true;
-    this.manualRange=this.rangeFromCoordinates();
+
+    this.manualRange=
+      this.chart?.getMainPriceRange?.()||
+      this.rangeFromCoordinates();
 
     this.applyManualProvider();
     this.updateModeChip();
 
-    toast('Free vertical chart movement enabled');
+    toast('Free X/Y chart movement enabled');
   }
 
   cycleShift(button){
@@ -757,6 +878,30 @@ export class ChartPane{
   }
 
   rangeFromCoordinates(){
+    /*
+     * When Native is already manual, prefer the engine's real raw
+     * instrument-price range.
+     */
+    try{
+      if(
+        this.chart?.isMainPriceManual?.()
+      ){
+        const native=
+          this.chart?.getMainPriceRange?.();
+
+        if(
+          native&&
+          Number.isFinite(native.min)&&
+          Number.isFinite(native.max)&&
+          native.max>native.min
+        ){
+          return{
+            ...native
+          };
+        }
+      }
+    }catch{}
+
     if(!this.series)return null;
 
     const h=Math.max(
@@ -776,9 +921,9 @@ export class ChartPane{
   }
 
   /*
-   * Manual/FREE body vertical movement.
+   * FREE/manual state is delegated to Full Native.
    *
-   * Full Native's manualPaneRanges is the one real Y-range.
+   * There is only ONE main price range.
    */
   applyManualProvider(){
     if(!this.manualRange)return;
@@ -798,13 +943,58 @@ export class ChartPane{
 
     try{
       /*
-       * Full Native path.
+       * Preferred Full Native API from File 1.
+       */
+      if(
+        typeof this.chart?.setMainManualRange===
+        'function'
+      ){
+        const safe=
+          this.chart.setMainManualRange(
+            candidate
+          );
+
+        if(
+          safe&&
+          Number.isFinite(safe.min)&&
+          Number.isFinite(safe.max)&&
+          safe.max>safe.min
+        ){
+          candidate=safe;
+          this.manualRange={
+            ...safe
+          };
+        }
+
+        /*
+         * Remove old compatibility providers.
+         */
+        this.series?.applyOptions({
+          autoscaleInfoProvider:null
+        });
+
+        this.indicatorSeries
+          .filter(x=>x.paneIndex===0)
+          .forEach(x=>{
+            x.series.applyOptions({
+              autoscaleInfoProvider:null
+            });
+          });
+
+        return;
+      }
+
+      /*
+       * Compatibility path for an older Native build.
        */
       if(this.chart?.manualPaneRanges?.set){
         if(
           typeof this.chart._constrainMainManualRange==='function'
         ){
-          candidate=this.chart._constrainMainManualRange(candidate);
+          candidate=
+            this.chart._constrainMainManualRange(
+              candidate
+            );
         }
 
         this.manualRange={...candidate};
@@ -818,9 +1008,6 @@ export class ChartPane{
           this.chart.priceScaleOptions.autoScale=false;
         }
 
-        /*
-         * Remove any old compatibility provider so it cannot compete.
-         */
         this.series?.applyOptions({
           autoscaleInfoProvider:null
         });
@@ -838,7 +1025,7 @@ export class ChartPane{
       }
 
       /*
-       * Compatibility fallback only.
+       * Final legacy fallback only.
        */
       const provider=()=>({
         priceRange:{
@@ -858,13 +1045,19 @@ export class ChartPane{
             autoscaleInfoProvider:provider
           });
         });
+
     }catch{}
   }
 
   clearManualProvider(){
     try{
       /*
-       * Clear Native's actual manual price range.
+       * Preferred Full Native reset.
+       */
+      this.chart?.clearMainManualRange?.();
+
+      /*
+       * Compatibility cleanup.
        */
       this.chart?.manualPaneRanges?.delete?.(0);
 
@@ -883,6 +1076,7 @@ export class ChartPane{
       });
 
       this.chart?.requestRender?.();
+
     }catch{}
   }
 
@@ -965,10 +1159,27 @@ export class ChartPane{
         )
         :null;
 
-      const manualSpan=this.manualRange
+      /*
+       * Query Native directly instead of relying on an old ChartPane
+       * copy of the manual range.
+       */
+      const nativeManual=
+        typeof this.chart?.isMainPriceManual==='function'
+          ?this.chart.isMainPriceManual()
+          :this.manualMode;
+
+      const nativeRange=
+        nativeManual
+          ?(
+            this.chart?.getMainPriceRange?.()||
+            this.manualRange
+          )
+          :null;
+
+      const manualSpan=nativeRange
         ?Math.max(
           1e-9,
-          this.manualRange.max-this.manualRange.min
+          nativeRange.max-nativeRange.min
         )
         :null;
 
@@ -989,7 +1200,7 @@ export class ChartPane{
 
         priceRatio,
 
-        manualMode:!!this.manualMode,
+        manualMode:!!nativeManual,
 
         verticalScaleFactor:
           manualSpan&&dataSpan
@@ -1060,6 +1271,7 @@ export class ChartPane{
         from,
         to
       });
+
     }catch{}
 
     requestAnimationFrame(()=>{
@@ -1126,6 +1338,7 @@ export class ChartPane{
                 candidate.min,
                 base.min
               ),
+
               max:Math.max(
                 candidate.max,
                 base.max
@@ -1137,6 +1350,7 @@ export class ChartPane{
           this.manualRange=candidate;
           this.applyManualProvider();
         }
+
       }else{
         this.manualMode=false;
         this.manualRange=null;
@@ -1441,6 +1655,7 @@ export class ChartPane{
       );
 
     const to=(len-1)+offset;
+
     const from=Math.max(
       -offset,
       to-bars
@@ -1486,6 +1701,7 @@ export class ChartPane{
         from,
         to
       });
+
     }catch{}
 
     requestAnimationFrame(()=>{
@@ -1670,8 +1886,7 @@ export class ChartPane{
     );
 
     /*
-     * Keep this exact compact call.
-     * Existing SUPER-JESUS transition tests expect it.
+     * Keep exact compact form for current SUPER-JESUS tests.
      */
     this.rebuildSeries({preserveVisibleRange:false});
 
@@ -1732,8 +1947,7 @@ export class ChartPane{
   }
 
   /*
-   * Keep this method signature compact.
-   * Existing transition test checks this exact form.
+   * Keep exact compact signature for current transition tests.
    */
   rebuildSeries({preserveVisibleRange=true}={}){
     const L=NativeSeries;
@@ -2051,6 +2265,7 @@ export class ChartPane{
           top:s.chartSettings.topMargin,
           bottom:s.chartSettings.bottomMargin
         },
+
         mode:this.priceScaleModeValue()
       }
     });
@@ -2100,6 +2315,7 @@ export class ChartPane{
       this.series?.setData(
         this.mainSeriesData()
       );
+
     }catch(e){
       console.error(
         'Trade Avata main series data error',
@@ -2168,7 +2384,7 @@ export class ChartPane{
     const renko=this.isRenkoConstruction();
 
     /*
-     * Replay keeps readable Renko geometry.
+     * Replay keeps the same readable Renko geometry.
      */
     const future=Math.round(
       visible*(renko?.18:.34)
@@ -2239,6 +2455,7 @@ export class ChartPane{
           title:'Ask'
         });
       }
+
     }catch{}
   }
 
@@ -2314,7 +2531,9 @@ export class ChartPane{
           .setVisibleLogicalRange(
             range
           );
+
       }catch{}
+
     }else{
       this.homeView();
     }
@@ -2385,6 +2604,7 @@ export class ChartPane{
           {
             class:`legend-item ${hidden?'hidden':''}`,
             'data-indicator':ind.id,
+
             title:hidden
               ?`Show ${ind.name}`
               :`${ind.name} · eye hides indicator · double-click name for settings`
@@ -2395,9 +2615,11 @@ export class ChartPane{
           'button',
           {
             class:'legend-eye',
+
             'aria-label':hidden
               ?`Show ${ind.name}`
               :`Hide ${ind.name}`,
+
             title:hidden
               ?`Show ${ind.name}`
               :`Hide ${ind.name}`
@@ -2423,17 +2645,20 @@ export class ChartPane{
             class:'legend-label',
             title:`Double-click to edit ${ind.name}`
           },
+
           el(
             'i',
             {
               style:`background:${ind.color}`
             }
           ),
+
           el(
             'strong',
             {
               style:`color:${hidden?'#8194a5':ind.color}`
             },
+
             `${ind.name}${!hidden&&val!=null?` ${Number(val).toFixed(2)}`:''}`
           )
         );
@@ -2473,6 +2698,7 @@ export class ChartPane{
     if('open'in d){
       ohlc.textContent=
         `O ${formatPrice(this.symbol,d.open)}  H ${formatPrice(this.symbol,d.high)}  L ${formatPrice(this.symbol,d.low)}  C ${formatPrice(this.symbol,d.close)}`;
+
     }else if('value'in d){
       ohlc.textContent=
         `C ${formatPrice(this.symbol,d.value)}`;
@@ -2578,6 +2804,7 @@ export class ChartPane{
           }
         }
       });
+
     }catch{}
 
     if(this.drawingLayer){
@@ -2600,6 +2827,7 @@ export class ChartPane{
   resizeRoundGrid(){
     const c=this.roundGridCanvas;
     const r=c.getBoundingClientRect();
+
     const dpr=Math.max(
       1,
       devicePixelRatio||1
@@ -2727,7 +2955,7 @@ export class ChartPane{
     this.renderRoundGrid();
   }
 
-  // ===== Logical/future-space helpers =====
+  // ===== Logical / future-space helpers =====
 
   logicalAtCoordinate(x){
     return(
@@ -2855,7 +3083,12 @@ export class ChartPane{
       x,
       y,
       logical,
-      time:this.projectedTimeForLogical(logical),
+
+      time:
+        this.projectedTimeForLogical(
+          logical
+        ),
+
       price
     };
   }
@@ -2907,7 +3140,11 @@ export class ChartPane{
     return{
       ...point,
       logical:next,
-      time:this.projectedTimeForLogical(next)
+
+      time:
+        this.projectedTimeForLogical(
+          next
+        )
     };
   }
 
@@ -3033,6 +3270,7 @@ export class ChartPane{
             inds,
             Math.min(
               out.width*.45,
+
               pad+
               ctx.measureText(cfg).width+
               16*ratio
@@ -3073,7 +3311,11 @@ export class ChartPane{
 
   destroy(){
     this.resizeObserver?.disconnect();
-    clearInterval(this.countdownTimer);
+
+    clearInterval(
+      this.countdownTimer
+    );
+
     this.drawingLayer?.destroy?.();
 
     try{
